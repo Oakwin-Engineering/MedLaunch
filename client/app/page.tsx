@@ -4,9 +4,8 @@ import * as React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { createTheme } from "@mui/material/styles";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import DescriptionIcon from "@mui/icons-material/Description";
-import LayersIcon from "@mui/icons-material/Layers";
+import ApartmentIcon from "@mui/icons-material/Apartment";
+import PersonIcon from "@mui/icons-material/Person";
 import { AppProvider, type Navigation } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import { useDemoRouter } from "@toolpad/core/internal";
@@ -16,24 +15,24 @@ const NAVIGATION: Navigation = [
   {
     segment: "reports",
     title: "Reports",
-    icon: <BarChartIcon />,
+    icon: <ApartmentIcon />,
     children: [
       {
         segment: "sales",
         title: "Sales",
-        icon: <DescriptionIcon />,
+        icon: <PersonIcon />,
       },
       {
         segment: "traffic",
         title: "Traffic",
-        icon: <DescriptionIcon />,
+        icon: <PersonIcon />,
       },
     ],
   },
   {
     segment: "integrations",
     title: "Integrations",
-    icon: <LayersIcon />,
+    icon: <ApartmentIcon />,
   },
 ];
 

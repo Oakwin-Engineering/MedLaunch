@@ -49,8 +49,8 @@ export default function FinancialKpiTable() {
                     month === "Totals"
                       ? "#D3D3D3"
                       : month === "Coding %"
-                      ? "#E1A9E2"
-                      : undefined,
+                        ? "#E1A9E2"
+                        : undefined,
                 }}
               >
                 {month}

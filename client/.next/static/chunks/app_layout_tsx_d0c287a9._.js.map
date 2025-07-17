@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file:///Users/vehbikaraagac/Desktop/MedLaunch/client/app/layout.tsx"],"sourcesContent":["\"use client\";\n\nimport \"./globals.css\";\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html>\n      <body>{children}</body>\n    </html>\n  );\n}\n"],"names":[],"mappings":";;;;AAAA;;;AAIe,SAAS,WAAW,KAIjC;QAJiC,EACjC,QAAQ,EAGR,GAJiC;IAKjC,qBACE,6LAAC;kBACC,cAAA,6LAAC;sBAAM;;;;;;;;;;;AAGb;KAVwB","debugId":null}}]
+}

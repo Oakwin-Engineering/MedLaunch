@@ -14,24 +14,24 @@ import FinancialKpiTable from "../component/Table";
 const NAVIGATION: Navigation = [
   {
     segment: "reports",
-    title: "Reports",
+    title: "Broadmoor Clinic",
     icon: <ApartmentIcon />,
     children: [
       {
         segment: "sales",
-        title: "Sales",
+        title: "Daniel Oukolov",
         icon: <PersonIcon />,
       },
       {
         segment: "traffic",
-        title: "Traffic",
+        title: "Vehbi Karaagac",
         icon: <PersonIcon />,
       },
     ],
   },
   {
     segment: "integrations",
-    title: "Integrations",
+    title: "Mason Clinic",
     icon: <ApartmentIcon />,
   },
 ];
@@ -42,14 +42,6 @@ const demoTheme = createTheme({
   },
   colorSchemes: { light: true, dark: true },
 });
-
-function DemoPageContent({ pathname }: { pathname: string }) {
-  return (
-    <Box>
-      <Typography>Dashboard content for {pathname}</Typography>
-    </Box>
-  );
-}
 
 export default function DashboardLayoutBasic() {
   const router = useDemoRouter();

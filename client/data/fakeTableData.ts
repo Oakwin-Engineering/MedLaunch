@@ -1,6 +1,4 @@
-// Table data matching the screenshot layout, color groupings, and structure
 export const tableData = [
-  // Initial Visits Section (Yellow)
   {
     section: "Initial Visits",
     type: "data",
@@ -288,7 +286,7 @@ export const tableData = [
     colorGroup: "orange",
     isCurrency: true,
   },
-] as const;
+];
 
 // Months for the table (short names)
 export const tableMonths = [

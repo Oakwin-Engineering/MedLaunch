@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import { createTheme } from "@mui/material/styles";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import PersonIcon from "@mui/icons-material/Person";
@@ -10,31 +8,43 @@ import { AppProvider, type Navigation } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import { useDemoRouter } from "@toolpad/core/internal";
 import FinancialKpiTable from "../component/Table";
+import tableData from "../data/fakeTableData";
 
 const NAVIGATION: Navigation = [
   {
-    segment: "reports",
+    segment: "broadmoor_clinic",
     title: "Broadmoor Clinic",
     icon: <ApartmentIcon />,
     children: [
       {
-        segment: "sales",
+        segment: "daniel_oukolov",
         title: "Daniel Oukolov",
         icon: <PersonIcon />,
       },
       {
-        segment: "traffic",
+        segment: "vehbi_karaagac",
         title: "Vehbi Karaagac",
         icon: <PersonIcon />,
       },
     ],
   },
   {
-    segment: "integrations",
+    segment: "mason_clinic",
     title: "Mason Clinic",
     icon: <ApartmentIcon />,
   },
 ];
+
+function flat(array) {
+  var result = [];
+  array.forEach(function (a) {
+    result.push(a);
+    if (Array.isArray(a.children)) {
+      result = result.concat(flat(a.children));
+    }
+  });
+  return result;
+}
 
 const demoTheme = createTheme({
   cssVariables: {
@@ -44,7 +54,11 @@ const demoTheme = createTheme({
 });
 
 export default function DashboardLayoutBasic() {
-  const router = useDemoRouter();
+  const router = useDemoRouter("/broadmoor_clinic");
+
+  const flatData = flat(tableData);
+
+  console.log(router.pathname);
 
   return (
     <AppProvider
@@ -55,7 +69,12 @@ export default function DashboardLayoutBasic() {
     >
       <DashboardLayout>
         <div style={{ padding: 20 }}>
-          <FinancialKpiTable />
+          <FinancialKpiTable
+            tableData={
+              flatData.find((item) => item.segment === router.pathname.slice(1))
+                .data
+            }
+          />
         </div>
       </DashboardLayout>
     </AppProvider>

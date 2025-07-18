@@ -1,4 +1,4 @@
-export const tableData = [
+const baseData = [
   {
     section: "Initial Visits",
     type: "data",
@@ -288,20 +288,30 @@ export const tableData = [
   },
 ];
 
-// Months for the table (short names)
-export const tableMonths = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-  "Totals",
-  "Coding %",
-] as const;
+// NAVIGATION hierarchy with table data under `data` key
+const navData = [
+  {
+    entity: "Broadmoor Clinic",
+    segment: "broadmoor_clinic",
+    data: baseData,
+    children: [
+      {
+        entity: "Daniel Oukolov",
+        segment: "daniel_oukolov",
+        data: baseData,
+      },
+      {
+        entity: "Vehbi Karaagac",
+        segment: "vehbi_karaagac",
+        data: baseData,
+      },
+    ],
+  },
+  {
+    entity: "Mason Clinic",
+    segment: "mason_clinic",
+    data: baseData,
+  },
+];
+
+export default navData;

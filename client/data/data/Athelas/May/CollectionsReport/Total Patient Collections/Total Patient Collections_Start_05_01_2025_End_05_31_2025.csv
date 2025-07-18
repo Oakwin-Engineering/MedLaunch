@@ -1,0 +1,18 @@
+patient_id,patient_name,payment_date,expected_deposit_date,payout_id,payment_method,payment_type,misc_transaction_information,facilitated_by,patient_paid,overall_stripe_transaction_fees,overall_net_received,patient_write_off_amount
+2944929,Glenna Hibbard,2025-05-13,,,CHECK,PAYMENT,132,LeeAnn Hartman,16.99,0.0,16.99,0.0
+2945037,Lynda B Conrad,2025-05-13,,,CHECK,PAYMENT,1437,LeeAnn Hartman,20.0,0.0,20.0,0.0
+2945105,Nancy Harrell,2025-05-13,2025-05-15,po_1ROTprRJ5nHpC5ORm1bmDRcx,SMART_PAY,PAYMENT,,Nancy Harrell,31.2,1.2,30.0,0.0
+2961015,Michael Bobbitt,2025-05-19,,,CHECK,PAYMENT,283,Becky Rivers,95.96,0.0,95.96,0.0
+2966433,Leon Potter,2025-05-19,,,CHECK,PAYMENT,7938,Becky Rivers,19.0,0.0,19.0,0.0
+2966582,Jeffrey Johnson,2025-05-06,2025-05-08,po_1RLwy8RJ5nHpC5ORBkny1p8f,SMART_PAY,PAYMENT,,LeeAnn Hartman,131.67,4.12,127.55,0.0
+2966657,Edward Oberry,2025-05-07,,,CHECK,PAYMENT,721,Becky Rivers,13.17,0.0,13.17,0.0
+2966678,Irene Butkus,2025-05-13,,,CHECK,PAYMENT,644,LeeAnn Hartman,35.16,0.0,35.16,0.0
+2967561,Gerald Schroeder,2025-05-15,,,CHECK,PAYMENT,3279,Becky Rivers,60.0,0.0,60.0,0.0
+2968163,Clara Cole,2025-05-28,,,CHECK,PAYMENT,2727,Becky Rivers,12.54,0.0,12.54,0.0
+3031962,Anna Folsom,2025-05-28,,,CHECK,PAYMENT,6732,Becky Rivers,123.66,0.0,123.66,0.0
+3035741,Connie Austin,2025-05-13,,,CHECK,PAYMENT,6011,LeeAnn Hartman,5.13,0.0,5.13,0.0
+3075389,Robinetta Goold,2025-05-15,,,CHECK,PAYMENT,3011,Becky Rivers,15.0,0.0,15.0,0.0
+3096493,Roy Sharpe,2025-05-19,,,CHECK,PAYMENT,2205,Becky Rivers,20.0,0.0,20.0,0.0
+3133794,Cecil D Boyd,2025-05-28,,,CHECK,PAYMENT,1626,Becky Rivers,282.49,0.0,282.49,0.0
+3139702,Audrey Weeks,2025-05-09,,,CHECK,PAYMENT,1605,LeeAnn Hartman,24.66,0.0,24.66,0.0
+3934440,Nancy Gordon,2025-05-09,,,CHECK,PAYMENT,5874,LeeAnn Hartman,35.0,0.0,35.0,0.0

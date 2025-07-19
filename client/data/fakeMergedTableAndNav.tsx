@@ -1,3 +1,7 @@
+import ApartmentIcon from "@mui/icons-material/Apartment";
+import PersonIcon from "@mui/icons-material/Person";
+import { useTreeItemModel } from "@mui/x-tree-view/hooks";
+
 const baseData = [
   {
     section: "Initial Visits",
@@ -288,30 +292,125 @@ const baseData = [
   },
 ];
 
-// NAVIGATION hierarchy with table data under `data` key
 const navData = [
   {
-    entity: "Broadmoor Clinic",
+    title: "Broadmoor Clinic",
     segment: "broadmoor_clinic",
+    icon: <ApartmentIcon />,
     data: baseData,
     children: [
       {
-        entity: "Daniel Oukolov",
+        title: "Daniel Oukolov",
         segment: "daniel_oukolov",
+        icon: <PersonIcon />,
         data: baseData,
+        children: [
+          {
+            title: "Daniel Oukolov",
+            segment: "daniel_oukolov",
+            icon: <PersonIcon />,
+            data: baseData,
+          },
+          {
+            title: "Vehbi Karaagac",
+            segment: "vehbi_karaagac",
+            icon: <PersonIcon />,
+            data: baseData,
+          },
+        ],
       },
       {
-        entity: "Vehbi Karaagac",
+        title: "Vehbi Karaagac",
         segment: "vehbi_karaagac",
+        icon: <PersonIcon />,
         data: baseData,
       },
     ],
   },
   {
-    entity: "Mason Clinic",
+    title: "Mason Clinic",
     segment: "mason_clinic",
+    icon: <ApartmentIcon />,
     data: baseData,
   },
 ];
 
-export default navData;
+const ITEMS = [
+  {
+    id: "emma_watson",
+    label: "Emma Watson",
+    data: baseData,
+    iconType: "clinic",
+    children: [
+      {
+        id: "division_alcatraz",
+        label: "Division Alcatraz",
+        data: baseData,
+        iconType: "clinic",
+        children: [
+          { id: "daniel_craig", label: "Daniel Craig", iconType: "person" },
+          {
+            id: "scarlett_johansson",
+            label: "Scarlett Johansson",
+            iconType: "person",
+          },
+          { id: "chris_evans", label: "Chris Evans", iconType: "person" },
+          { id: "tom_hanks", label: "Tom Hanks", iconType: "person" },
+          {
+            id: "zendaya_coleman",
+            label: "Zendaya Coleman",
+            iconType: "person",
+          },
+        ],
+      },
+      {
+        id: "robert_downey_jr",
+        label: "Robert Downey Jr.",
+        iconType: "person",
+        data: baseData,
+      },
+      {
+        id: "natalie_portman",
+        label: "Natalie Portman",
+        iconType: "person",
+        data: baseData,
+      },
+    ],
+  },
+  {
+    id: "bookmarked",
+    label: "Bookmarked",
+    iconType: "clinic",
+    data: baseData,
+    children: [
+      {
+        id: "leonardo_dicaprio",
+        label: "Leonardo DiCaprio",
+        iconType: "clinic",
+        data: baseData,
+      },
+      {
+        id: "jennifer_lawrence",
+        label: "Jennifer Lawrence",
+        iconType: "person",
+        data: baseData,
+      },
+      {
+        id: "morgan_freeman",
+        label: "Morgan Freeman",
+        iconType: "person",
+        data: baseData,
+      },
+      {
+        id: "emma_stone",
+        label: "Emma Stone",
+        iconType: "person",
+        data: baseData,
+      },
+    ],
+  },
+  { id: "history", label: "History", iconType: "clinic", data: baseData },
+  { id: "trash", label: "Trash", iconType: "clinic", data: baseData },
+];
+
+export default ITEMS;

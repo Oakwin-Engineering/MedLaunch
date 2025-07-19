@@ -1,33 +1,3 @@
-.root {
-  display: flex;
-}
-
-.appBar {
-  z-index: 101;
-  position: fixed;
-  width: 100%;
-}
-
-.drawer {
-  z-index: 100;
-  width: 240px;
-  flex-shrink: 0;
-}
-
-.drawerPaper {
-  width: 240px;
-  box-sizing: border-box;
-}
-
-.overflowAuto {
-  overflow: auto;
-}
-
-.main {
-  flex-grow: 1;
-  padding: 24px;
-}
-
-.mb2 {
-  margin-bottom: 16px;
+.tableWrapper {
+  padding: 20px;
 }

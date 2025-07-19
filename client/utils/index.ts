@@ -17,4 +17,13 @@ function formatCurrency(value: number) {
   });
 }
 
-export { flat, formatCurrency };
+function getEntityByRoute(
+  route: string,
+  flatData: { segment: string; data: [] }[]
+) {
+  const parts = route.split("/").filter(Boolean);
+  const lastSegment = parts[parts.length - 1];
+  return flatData.find((item) => item.segment === lastSegment)?.data;
+}
+
+export { flat, formatCurrency, getEntityByRoute };

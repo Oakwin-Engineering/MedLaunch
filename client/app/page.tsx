@@ -1,82 +1,86 @@
 "use client";
 
-import * as React from "react";
-import { createTheme } from "@mui/material/styles";
-import ApartmentIcon from "@mui/icons-material/Apartment";
-import PersonIcon from "@mui/icons-material/Person";
-import { AppProvider, type Navigation } from "@toolpad/core/AppProvider";
-import { DashboardLayout } from "@toolpad/core/DashboardLayout";
+import { useEffect, useMemo, useState } from "react";
+import Box from "@mui/material/Box";
+import Drawer from "@mui/material/Drawer";
+import AppBar from "@mui/material/AppBar";
+import CssBaseline from "@mui/material/CssBaseline";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
 import { useDemoRouter } from "@toolpad/core/internal";
 import FinancialKpiTable from "../component/Table";
-import tableData from "../data/fakeTableData";
+import NavTreeView from "../component/NavTreeView";
+import fakeMergedTableAndNav from "../data/fakeMergedTableAndNav";
+import styles from "./page.module.css";
+import { flat } from "../utils";
 
-const NAVIGATION: Navigation = [
-  {
-    segment: "broadmoor_clinic",
-    title: "Broadmoor Clinic",
-    icon: <ApartmentIcon />,
-    children: [
-      {
-        segment: "daniel_oukolov",
-        title: "Daniel Oukolov",
-        icon: <PersonIcon />,
-      },
-      {
-        segment: "vehbi_karaagac",
-        title: "Vehbi Karaagac",
-        icon: <PersonIcon />,
-      },
-    ],
-  },
-  {
-    segment: "mason_clinic",
-    title: "Mason Clinic",
-    icon: <ApartmentIcon />,
-  },
-];
-
-function flat(array) {
-  var result = [];
-  array.forEach(function (a) {
-    result.push(a);
-    if (Array.isArray(a.children)) {
-      result = result.concat(flat(a.children));
-    }
-  });
-  return result;
-}
-
-const demoTheme = createTheme({
-  cssVariables: {
-    colorSchemeSelector: "data-toolpad-color-scheme",
-  },
-  colorSchemes: { light: true, dark: true },
-});
+const drawerWidth = 280;
 
 export default function DashboardLayoutBasic() {
-  const router = useDemoRouter("/broadmoor_clinic");
+  const router = useDemoRouter("");
+  const [lastClickedItem, setLastClickedItem] = useState<string | null>(null);
 
-  const flatData = flat(tableData);
+  // Giant JSON with navigation hierarchy and tables together
+  const [mergedTableAndNav, setMergedTableAndNav] = useState(
+    fakeMergedTableAndNav
+  );
 
-  console.log(router.pathname);
+  // the table to show when user clicks on a navigation bar entity (clinic/provider)
+  const [selectedTable, setSelectedTable] = useState<any[]>([]);
+
+  const flatData = useMemo(
+    () => flat(fakeMergedTableAndNav),
+    [fakeMergedTableAndNav]
+  );
+
+  useEffect(() => {
+    const tableData = flatData.find((item) => item.id === lastClickedItem);
+    setSelectedTable(tableData);
+  }, [lastClickedItem, flatData]);
 
   return (
-    <AppProvider
-      navigation={NAVIGATION}
-      router={router}
-      theme={demoTheme}
-      branding={{ title: "MedLaunch Admin", logo: "" }}
-    >
-      <DashboardLayout>
-        <div style={{ padding: 20 }}>
-          <FinancialKpiTable
-            tableData={
-              flatData.find((item) => item.segment === router.pathname.slice(1))
-                .data
-            }
+    <Box sx={{ display: "flex" }}>
+      <CssBaseline />
+      <AppBar
+        position="fixed"
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, background: "white" }}
+      >
+        <Toolbar>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            fontWeight={700}
+            color="rgb(56,116,203)"
+          >
+            MedLaunch Admin
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: {
+            width: drawerWidth,
+            boxSizing: "border-box",
+          },
+        }}
+      >
+        <Toolbar />
+        <Box sx={{ overflow: "auto", margin: 1 }}>
+          <NavTreeView
+            setLastClickedItem={setLastClickedItem}
+            hierarchy={fakeMergedTableAndNav}
           />
-        </div>
-      </DashboardLayout>
-    </AppProvider>
+        </Box>
+      </Drawer>
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Toolbar />
+        <Typography variant="h4">{selectedTable?.label}</Typography>
+        <FinancialKpiTable tableData={selectedTable?.data} />
+      </Box>
+    </Box>
   );
 }

@@ -9,7 +9,13 @@ import Paper from "@mui/material/Paper";
 import { formatCurrency } from "../utils";
 import { colorMap, tableMonths, verticalSections } from "../constants";
 
-export default function FinancialKpiTable({ tableData }: { tableData: any[] }) {
+export default function FinancialKpiTable({
+  tableData = [],
+}: {
+  tableData: any[];
+}) {
+  if (tableData.length === 0) return null;
+
   const grouped: Record<string, any[]> = {};
   tableData.forEach((row) => {
     if (!grouped[row.section]) grouped[row.section] = [];

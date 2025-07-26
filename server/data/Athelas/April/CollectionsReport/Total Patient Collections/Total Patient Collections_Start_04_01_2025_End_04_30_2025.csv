@@ -1,0 +1,2 @@
+patient_id,patient_name,payment_date,expected_deposit_date,payout_id,payment_method,payment_type,misc_transaction_information,facilitated_by,patient_paid,overall_stripe_transaction_fees,overall_net_received,patient_write_off_amount
+2937169,Test Rohit,2025-04-02,,,CASH,REFUND,,Rohit,-10.0,0.0,-10.0,0.0

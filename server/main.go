@@ -4,13 +4,10 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/rs/cors"
@@ -65,6 +62,9 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 	path := "example/April/all_data.csv"
 	chargesByClinicPath := "example/April/charges_by_clinic.csv"
 	chargesByProviderPath := "example/April/charges_by_provider_bottom.csv"
+	collectionsByFacilityPath := "example/April/collections_by_facility.csv"
+	collectionsByProviderPath := "example/April/collections_by_provider.csv"
+	cptCodesByProviderPath := "example/April/charges_by_provider_top.csv"
 
 	// Process charges by clinic and get facility totals
 	facilityTotals, err := processChargesByClinic(chargesByClinicPath)
@@ -76,7 +76,7 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Print facility totals
-	fmt.Println("\nFacility Totals:")
+	fmt.Println("\nFacility Charges:")
 	for facility, total := range facilityTotals {
 		fmt.Printf("%s: $%.2f\n", facility, total)
 	}
@@ -91,9 +91,63 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Print provider totals
-	fmt.Println("\nProvider Totals:")
+	fmt.Println("\nProvider Charges:")
 	for provider, total := range providerTotals {
 		fmt.Printf("%s: $%.2f\n", provider, total)
+	}
+
+	// Process collections by facility
+	facilityCollections, err := processCollectionsByFacility(collectionsByFacilityPath)
+	if err != nil {
+		log.Printf("Error processing collections by facility: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error processing collections by facility: %v", err)
+		return
+	}
+
+	// Print facility collections
+	fmt.Println("\nFacility Collections:")
+	for facility, total := range facilityCollections {
+		fmt.Printf("%s: $%.2f\n", facility, total)
+	}
+
+	// Process collections by provider
+	providerCollections, err := processCollectionsByProvider(collectionsByProviderPath)
+	if err != nil {
+		log.Printf("Error processing collections by provider: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error processing collections by provider: %v", err)
+		return
+	}
+
+	// Print provider collections
+	fmt.Println("\nProvider Collections:")
+	for provider, total := range providerCollections {
+		fmt.Printf("%s: $%.2f\n", provider, total)
+	}
+
+	// Process provider code relationships
+	providerCodes, err := processProviderCodeRelationships(cptCodesByProviderPath)
+	if err != nil {
+		log.Printf("Error processing provider code relationships: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error processing provider code relationships: %v", err)
+		return
+	}
+
+	// Print provider code relationships
+	fmt.Println("\nProvider Code Relationships:")
+	for provider, codes := range providerCodes {
+		fmt.Printf("\n%s:\n", provider)
+		for code, data := range codes {
+			fmt.Printf("  Code %s: %d encounters\n", code, data)
+		}
+	}
+
+	// Process provider-facility relationships
+	facilityProviders, providerFacilities := processProviderFacilityRelationships(path, w)
+	if facilityProviders == nil || providerFacilities == nil {
+		return
 	}
 
 	baseData := []MetricData{
@@ -128,55 +182,8 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Read and parse the CSV file
-	file, err := os.Open(path)
-	if err != nil {
-		log.Printf("Error opening CSV file: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Error opening CSV file: %v", err)
-		return
-	}
-	defer file.Close()
-
-	// Create CSV reader
-	csvReader := csv.NewReader(file)
-
-	// Indices for facility and provider in the csv
-	facilityIndex := 8
-	providerIndex := 6
-
-	// Map to store unique facilities and their providers
-	facilityProviders := make(map[string]map[string]bool)
 	// Map to track provider occurrences across all facilities
 	providerOccurrences := make(map[string]int)
-	// Map to track provider-facility combinations
-	providerFacilities := make(map[string][]string)
-
-	// Read and process CSV rows to gather all provider-facility relationships
-	for {
-		record, err := csvReader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			continue // Skip malformed lines
-		}
-
-		facility := strings.TrimSpace(record[facilityIndex])
-		provider := strings.TrimSpace(record[providerIndex])
-
-		if facility != "" && provider != "" {
-			if _, exists := facilityProviders[facility]; !exists {
-				facilityProviders[facility] = make(map[string]bool)
-			}
-			facilityProviders[facility][provider] = true
-
-			// Track which facilities each provider appears in
-			if !contains(providerFacilities[provider], facility) {
-				providerFacilities[provider] = append(providerFacilities[provider], facility)
-			}
-		}
-	}
 
 	// Create the final items slice
 	var items []*Node

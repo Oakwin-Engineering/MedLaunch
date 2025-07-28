@@ -19,32 +19,28 @@ const drawerWidth = 280;
 export default function DashboardLayoutBasic() {
   const router = useDemoRouter("");
   const [lastClickedItem, setLastClickedItem] = useState<string | null>(null);
-  const [tableData, setTableData] = useState<any>(null);
-
-  console.log(tableData);
 
   // Giant JSON with navigation hierarchy and tables together
-  const [mergedTableAndNav, setMergedTableAndNav] = useState(
-    fakeMergedTableAndNav
-  );
+  const [mergedTableAndNav, setMergedTableAndNav] = useState([]);
+
+  console.log(mergedTableAndNav);
 
   // the table to show when user clicks on a navigation bar entity (clinic/provider)
   const [selectedTable, setSelectedTable] = useState<any[]>([]);
 
-  const flatData = useMemo(
-    () => flat(fakeMergedTableAndNav),
-    [fakeMergedTableAndNav]
-  );
+  const flatData = useMemo(() => {
+    if (mergedTableAndNav?.length > 0) flat(mergedTableAndNav);
+  }, [mergedTableAndNav]);
 
   useEffect(() => {
     fetch("http://localhost:8080/table-data")
       .then((response) => response.json())
-      .then((data) => setTableData(data))
+      .then((data) => setMergedTableAndNav(data))
       .catch((error) => console.error("Error fetching table data:", error));
   }, []);
 
   useEffect(() => {
-    const tableData = flatData.find((item) => item.id === lastClickedItem);
+    const tableData = flatData?.find((item) => item.id === lastClickedItem);
     setSelectedTable(tableData);
   }, [lastClickedItem, flatData]);
 
@@ -82,7 +78,7 @@ export default function DashboardLayoutBasic() {
         <Box sx={{ overflow: "auto", margin: 1 }}>
           <NavTreeView
             setLastClickedItem={setLastClickedItem}
-            hierarchy={fakeMergedTableAndNav}
+            hierarchy={mergedTableAndNav}
           />
         </Box>
       </Drawer>

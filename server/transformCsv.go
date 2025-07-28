@@ -2,71 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
-	"fmt"
-	"os"
 
 	"cloud.google.com/go/storage"
 )
 
 const PROJECT_ID = "medlaunch-467015"
-
-// TransformAndUploadADPCSV reads the CSV, extracts all unique provider names, marshals to JSON, and uploads to GCS
-func TransformAndUploadADPCSV(csvPath string, bucketName string, objectName string) error {
-	names, err := extractUniqueProviderNames(csvPath)
-	if err != nil {
-		return fmt.Errorf("failed to extract provider names: %w", err)
-	}
-	jsonBytes, err := json.Marshal(names)
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
-	}
-	if err := uploadToGCS(bucketName, objectName, jsonBytes); err != nil {
-		return fmt.Errorf("failed to upload to GCS: %w", err)
-	}
-	return nil
-}
-
-// extractUniqueProviderNames reads the CSV and returns all unique values in the NAME column
-func extractUniqueProviderNames(csvPath string) ([]string, error) {
-	f, err := os.Open(csvPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	reader := csv.NewReader(f)
-	reader.FieldsPerRecord = -1
-	allRows, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-	if len(allRows) < 2 {
-		return nil, fmt.Errorf("CSV has no data rows")
-	}
-	headers := allRows[0]
-	nameIdx := -1
-	for i, h := range headers {
-		if h == "NAME" {
-			nameIdx = i
-			break
-		}
-	}
-	if nameIdx == -1 {
-		return nil, fmt.Errorf("NAME column not found")
-	}
-	unique := make(map[string]struct{})
-	for _, row := range allRows[1:] {
-		if nameIdx < len(row) {
-			unique[row[nameIdx]] = struct{}{}
-		}
-	}
-	var names []string
-	for name := range unique {
-		names = append(names, name)
-	}
-	return names, nil
-}
 
 // uploadToGCS creates the bucket if needed and uploads the JSON
 func uploadToGCS(bucketName, objectName string, data []byte) error {

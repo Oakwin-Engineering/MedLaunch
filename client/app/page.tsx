@@ -19,6 +19,9 @@ const drawerWidth = 280;
 export default function DashboardLayoutBasic() {
   const router = useDemoRouter("");
   const [lastClickedItem, setLastClickedItem] = useState<string | null>(null);
+  const [tableData, setTableData] = useState<any>(null);
+
+  console.log(tableData);
 
   // Giant JSON with navigation hierarchy and tables together
   const [mergedTableAndNav, setMergedTableAndNav] = useState(
@@ -32,6 +35,13 @@ export default function DashboardLayoutBasic() {
     () => flat(fakeMergedTableAndNav),
     [fakeMergedTableAndNav]
   );
+
+  useEffect(() => {
+    fetch("http://localhost:8080/table-data")
+      .then((response) => response.json())
+      .then((data) => setTableData(data))
+      .catch((error) => console.error("Error fetching table data:", error));
+  }, []);
 
   useEffect(() => {
     const tableData = flatData.find((item) => item.id === lastClickedItem);

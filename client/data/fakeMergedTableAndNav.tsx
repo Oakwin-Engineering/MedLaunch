@@ -1,7 +1,3 @@
-import ApartmentIcon from "@mui/icons-material/Apartment";
-import PersonIcon from "@mui/icons-material/Person";
-import { useTreeItemModel } from "@mui/x-tree-view/hooks";
-
 const baseData = [
   {
     section: "Initial Visits",
@@ -289,49 +285,6 @@ const baseData = [
     coding: "",
     colorGroup: "orange",
     isCurrency: true,
-  },
-];
-
-const navData = [
-  {
-    title: "Broadmoor Clinic",
-    segment: "broadmoor_clinic",
-    icon: <ApartmentIcon />,
-    data: baseData,
-    children: [
-      {
-        title: "Daniel Oukolov",
-        segment: "daniel_oukolov",
-        icon: <PersonIcon />,
-        data: baseData,
-        children: [
-          {
-            title: "Daniel Oukolov",
-            segment: "daniel_oukolov",
-            icon: <PersonIcon />,
-            data: baseData,
-          },
-          {
-            title: "Vehbi Karaagac",
-            segment: "vehbi_karaagac",
-            icon: <PersonIcon />,
-            data: baseData,
-          },
-        ],
-      },
-      {
-        title: "Vehbi Karaagac",
-        segment: "vehbi_karaagac",
-        icon: <PersonIcon />,
-        data: baseData,
-      },
-    ],
-  },
-  {
-    title: "Mason Clinic",
-    segment: "mason_clinic",
-    icon: <ApartmentIcon />,
-    data: baseData,
   },
 ];
 

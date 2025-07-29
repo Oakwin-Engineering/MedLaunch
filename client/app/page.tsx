@@ -23,13 +23,13 @@ export default function DashboardLayoutBasic() {
   // Giant JSON with navigation hierarchy and tables together
   const [mergedTableAndNav, setMergedTableAndNav] = useState([]);
 
-  console.log(mergedTableAndNav);
-
   // the table to show when user clicks on a navigation bar entity (clinic/provider)
   const [selectedTable, setSelectedTable] = useState<any[]>([]);
 
+  console.log(selectedTable?.data);
+
   const flatData = useMemo(() => {
-    if (mergedTableAndNav?.length > 0) flat(mergedTableAndNav);
+    if (mergedTableAndNav?.length > 0) return flat(mergedTableAndNav);
   }, [mergedTableAndNav]);
 
   useEffect(() => {

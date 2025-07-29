@@ -4,8 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -35,6 +33,12 @@ func processCSV(filePath string, keyIdx, amountIdx int) (map[string]float64, err
 	defer file.Close()
 
 	csvReader := csv.NewReader(file)
+
+	// Skip header row
+	_, err = csvReader.Read()
+	if err != nil {
+		return nil, fmt.Errorf("error reading CSV header: %v", err)
+	}
 
 	// Map to store totals
 	totals := make(map[string]float64)
@@ -83,6 +87,16 @@ func processCollectionsByFacility(filePath string) (map[string]float64, error) {
 // Process collections by provider CSV and return total payments by provider
 func processCollectionsByProvider(filePath string) (map[string]float64, error) {
 	return processCSV(filePath, 0, 3) // provider_name at index 0, total_payments at index 3
+}
+
+// Process visits by clinic CSV and return total encounters by facility
+func processVisitsByClinic(filePath string) (map[string]float64, error) {
+	return processCSV(filePath, 0, 3) // facility_name at index 0, encounters_billed at index 3
+}
+
+// Process visits by provider CSV and return total encounters by provider
+func processVisitsByProvider(filePath string) (map[string]float64, error) {
+	return processCSV(filePath, 0, 1) // provider_name at index 0, encounters_billed at index 1
 }
 
 // processProviderCodeRelationships reads a CSV file and extracts provider-code relationships
@@ -135,13 +149,10 @@ func processProviderCodeRelationships(filePath string) (map[string]map[string]in
 }
 
 // processProviderFacilityRelationships reads a CSV file and extracts provider-facility relationships
-func processProviderFacilityRelationships(path string, w http.ResponseWriter) (map[string]map[string]bool, map[string][]string) {
+func processProviderFacilityRelationships(path string) (map[string]map[string]bool, map[string][]string) {
 	// Read and parse the CSV file
 	file, err := os.Open(path)
 	if err != nil {
-		log.Printf("Error opening CSV file: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Error opening CSV file: %v", err)
 		return nil, nil
 	}
 	defer file.Close()
@@ -149,9 +160,15 @@ func processProviderFacilityRelationships(path string, w http.ResponseWriter) (m
 	// Create CSV reader
 	csvReader := csv.NewReader(file)
 
+	// Skip header row
+	_, err = csvReader.Read()
+	if err != nil {
+		return nil, nil
+	}
+
 	// Indices for facility and provider in the csv
-	facilityIndex := 8
-	providerIndex := 6
+	facilityIndex := 7
+	providerIndex := 5
 
 	// Map to store unique facilities and their providers
 	facilityProviders := make(map[string]map[string]bool)

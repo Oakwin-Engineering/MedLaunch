@@ -68,7 +68,7 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 
 	// Process each month's data, build nav bar.
 	for _, month := range months {
-		allDataPath := fmt.Sprintf("example/%s/all_data.csv", month)
+		allDataPath := fmt.Sprintf("data/%s/all_data.csv", month)
 
 		// Skip if file doesn't exist
 		if _, err := os.Stat(allDataPath); os.IsNotExist(err) {
@@ -118,11 +118,11 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 	// Process each month's data
 	for _, month := range months {
 		// Generate file paths for this month
-		chargesByClinicPath := fmt.Sprintf("example/%s/charges_by_clinic.csv", month)
-		chargesByProviderPath := fmt.Sprintf("example/%s/charges_by_provider_bottom.csv", month)
-		collectionsByFacilityPath := fmt.Sprintf("example/%s/collections_by_facility.csv", month)
-		collectionsByProviderPath := fmt.Sprintf("example/%s/collections_by_provider.csv", month)
-		cptCodesByProviderPath := fmt.Sprintf("example/%s/charges_by_provider_top.csv", month)
+		chargesByClinicPath := fmt.Sprintf("data/%s/charges_by_clinic.csv", month)
+		chargesByProviderPath := fmt.Sprintf("data/%s/charges_by_provider_bottom.csv", month)
+		collectionsByFacilityPath := fmt.Sprintf("data/%s/collections_by_facility.csv", month)
+		collectionsByProviderPath := fmt.Sprintf("data/%s/collections_by_provider.csv", month)
+		cptCodesByProviderPath := fmt.Sprintf("data/%s/charges_by_provider_top.csv", month)
 
 		// Process charges by clinics
 		if facilityTotals, err := processChargesByClinic(chargesByClinicPath); err == nil {

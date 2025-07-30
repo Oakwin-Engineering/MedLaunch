@@ -67,10 +67,10 @@ func transformData() ([]byte, error) {
 	for _, month := range months {
 		// Generate file paths for this month
 		chargesByClinicPath := fmt.Sprintf("data/%s/%s_charges_by_clinic.csv", month, month)
-		chargesByProviderPath := fmt.Sprintf("data/%s/%s_charges_by_provider_bottom.csv", month, month)
+		chargesByProviderPath := fmt.Sprintf("data/%s/%s_charges_by_provider_top.csv", month, month)
 		collectionsByFacilityPath := fmt.Sprintf("data/%s/%s_collections_by_facility.csv", month, month)
 		collectionsByProviderPath := fmt.Sprintf("data/%s/%s_collections_by_provider.csv", month, month)
-		cptCodesByProviderPath := fmt.Sprintf("data/%s/%s_charges_by_provider_top.csv", month, month)
+		cptCodesByProviderPath := fmt.Sprintf("data/%s/%s_charges_by_provider_bottom.csv", month, month)
 
 		// Process charges by clinics
 		if facilityTotals, err := processChargesByClinic(chargesByClinicPath); err == nil {

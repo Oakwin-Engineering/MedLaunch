@@ -40,6 +40,7 @@ func main() {
 	// Serve static files from the build directory
 	fs := http.FileServer(http.Dir("./out"))
 	http.HandleFunc("/trigger-etl", triggerETL)
+	http.HandleFunc("/trigger-etl-test", triggerETLTest)
 	http.HandleFunc("/table-data", tableDataHandler)
 	http.Handle("/", fs)
 
@@ -94,6 +95,33 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "ETL process completed successfully")
 }
 
+func triggerETLTest(w http.ResponseWriter, r *http.Request) {
+
+	// Step 2: Transform data
+	jsonData, err := transformData()
+	if err != nil {
+		log.Printf("Error transforming data: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error transforming data: %v", err)
+		return
+	}
+	log.Println("Data transformation complete")
+
+	// Step 3: Upload transformed data to GCS
+	bucketName := "medlaunch-transformed"
+	objectName := "facility-provider-hierarchy.json"
+	if err := uploadBucket(bucketName, objectName, jsonData); err != nil {
+		log.Printf("Error uploading transformed data: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error uploading transformed data: %v", err)
+		return
+	}
+	log.Println("Data upload complete")
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "ETL process completed successfully")
+}
+
 func tableDataHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
@@ -118,8 +146,6 @@ func tableDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rc.Close()
-
-	fmt.Print(rc)
 
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := io.Copy(w, rc); err != nil {

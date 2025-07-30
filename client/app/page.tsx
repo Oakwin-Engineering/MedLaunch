@@ -2,21 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Drawer from "@mui/material/Drawer";
 import AppBar from "@mui/material/AppBar";
 import CssBaseline from "@mui/material/CssBaseline";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import CircularProgress from "@mui/material/CircularProgress";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { useDemoRouter } from "@toolpad/core/internal";
 import FinancialKpiTable from "../component/Table";
 import NavTreeView from "../component/NavTreeView";
-import fakeMergedTableAndNav from "../data/fakeMergedTableAndNav";
-import styles from "./page.module.css";
 import { flat } from "../utils";
 
 const drawerWidth = 280;
 
 export default function DashboardLayoutBasic() {
+  const [isLoading, setIsLoading] = useState(false);
   const router = useDemoRouter("");
   const [lastClickedItem, setLastClickedItem] = useState<string | null>(null);
 
@@ -51,7 +53,7 @@ export default function DashboardLayoutBasic() {
         position="fixed"
         sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, background: "white" }}
       >
-        <Toolbar>
+        <Toolbar sx={{ justifyContent: "space-between" }}>
           <Typography
             variant="h6"
             noWrap
@@ -61,6 +63,28 @@ export default function DashboardLayoutBasic() {
           >
             MedLaunch Admin
           </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ ml: 2, minWidth: 120 }}
+            disabled={isLoading}
+            endIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+            onClick={() => {
+              setIsLoading(true);
+              fetch(`${process.env.NEXT_PUBLIC_API_URL}/trigger-etl`)
+                .then((response) => response.json())
+                .then((data) => {
+                  console.log(data);
+                  setIsLoading(false);
+                })
+                .catch((error) => {
+                  console.error("Error fetching table data:", error);
+                  setIsLoading(false);
+                });
+            }}
+          >
+            {isLoading ? 'Processing...' : 'Trigger ETL'}
+          </Button>
         </Toolbar>
       </AppBar>
       <Drawer

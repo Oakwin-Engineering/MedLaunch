@@ -539,11 +539,11 @@ func triggerTransform(w http.ResponseWriter, r *http.Request) {
 func triggerETL(w http.ResponseWriter, r *http.Request) {
 	// csvPath := "data/ADP/payrollJanJune.csv"
 
-	// // We will pull the bucketname out of the request object when a cloud function passes it in.
+	// // We will pull the bucketname out of the request object when a cloud function passes it in.``
 	// transformedBucketName := "med-launch-transformed"
 	// objectName := "adp.json"
 
-	downloadError := downloadEntireBucket("med-launch", "data")
+	downloadError := downloadEntireBucket("medlaunch", "data")
 	if downloadError != nil {
 		log.Printf("Error downloading CSVs: %v", downloadError)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -33,7 +33,7 @@ export default function DashboardLayoutBasic() {
   }, [mergedTableAndNav]);
 
   useEffect(() => {
-    fetch("http://localhost:8080/table-data")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/table-data`)
       .then((response) => response.json())
       .then((data) => setMergedTableAndNav(data))
       .catch((error) => console.error("Error fetching table data:", error));

@@ -13,10 +13,10 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-const PROJECT_ID = "medlaunch-467015"
+const PROJECT_ID = "medlaunch-467423"
 
-// downloadEntireBucket downloads all objects under a given prefix (folder) from a GCS bucket
-func downloadEntireBucket(bucket string, topFolder string) error {
+// downloadBucket downloads all objects under a given prefix (folder) from a GCS bucket
+func downloadBucket(bucket string, topFolder string) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -91,8 +91,8 @@ func downloadEntireBucket(bucket string, topFolder string) error {
 	return nil
 }
 
-// uploadToGCS creates the bucket if needed and uploads the JSON
-func uploadToGCS(bucketName, objectName string, data []byte) error {
+// uploadBucket creates the bucket if needed and uploads the JSON
+func uploadBucket(bucketName, objectName string, data []byte) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {

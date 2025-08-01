@@ -9,21 +9,6 @@ import (
 	"strings"
 )
 
-// Helper function to convert strings to URL-friendly IDs
-func slugify(s string) string {
-	return strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(s, " ", "_"), ".", ""))
-}
-
-// Helper function to check if a string slice contains a value
-func contains(slice []string, str string) bool {
-	for _, v := range slice {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
 // Generic function to process charges from CSV and return total amounts by key
 func processCSV(filePath string, keyIdx, amountIdx int) (map[string]float64, error) {
 	file, err := os.Open(filePath)

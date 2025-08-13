@@ -1,6 +1,13 @@
 package main
 
-import "strings"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+)
+
+type CustomerMapping map[string]string
 
 // Array of months used for data processing
 var months = []string{"january", "february", "march", "april", "may", "june",
@@ -19,4 +26,32 @@ func contains(slice []string, str string) bool {
 		}
 	}
 	return false
+}
+
+func loadCustomerMapping() (CustomerMapping, error) {
+	data, err := os.ReadFile("customerIdMapping.json")
+	if err != nil {
+		return nil, fmt.Errorf("error reading customer mapping: %v", err)
+	}
+
+	var mapping CustomerMapping
+	if err := json.Unmarshal(data, &mapping); err != nil {
+		return nil, fmt.Errorf("error parsing customer mapping: %v", err)
+	}
+
+	return mapping, nil
+}
+
+func getBucketName(customerId string) (string, error) {
+	mapping, err := loadCustomerMapping()
+	if err != nil {
+		return "", err
+	}
+
+	bucketName, exists := mapping[customerId]
+	if !exists {
+		return "", fmt.Errorf("no bucket mapping found for customer ID: %s", customerId)
+	}
+
+	return bucketName, nil
 }

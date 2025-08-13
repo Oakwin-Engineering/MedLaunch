@@ -10,46 +10,31 @@ import (
 	"net/http"
 
 	"cloud.google.com/go/storage"
+	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
-// Node represents a facility or provider in the hierarchy
-type Node struct {
-	ID       string       `json:"id"`
-	Label    string       `json:"label"`
-	IconType string       `json:"iconType"`
-	Data     []MetricData `json:"data"`
-	Children []*Node      `json:"children,omitempty"`
-}
-
-// MetricData represents metric information for a node
-type MetricData struct {
-	Section         string    `json:"section"`
-	Type            string    `json:"type"`
-	Label           string    `json:"label,omitempty"`
-	Code            string    `json:"code,omitempty"`
-	Values          []float64 `json:"values"`
-	Total           float64   `json:"total"`
-	Coding          string    `json:"coding"`
-	ColorGroup      string    `json:"colorGroup"`
-	IsCurrency      bool      `json:"isCurrency,omitempty"`
-	IsSectionHeader bool      `json:"isSectionHeader,omitempty"`
-}
-
 func main() {
-	// Serve static files from the build directory
-	fs := http.FileServer(http.Dir("./out"))
-	http.HandleFunc("/trigger-etl", triggerETL)
-	http.HandleFunc("/trigger-etl-test", triggerETLTest)
-	http.HandleFunc("/table-data", tableDataHandler)
-	http.Handle("/", fs)
+	// Load environment variables
+	godotenv.Load()
 
-	// Enable CORS for localhost:3000
+	// Initialize router
+	r := mux.NewRouter()
+
+	// Register routes
+	r.HandleFunc("/trigger-etl/{customer-id}", triggerETL)
+	r.HandleFunc("/trigger-etl-test/{customer-id}", triggerETLTest)
+	r.HandleFunc("/table-data/{customer-id}", tableDataHandler)
+
+	// Enable CORS
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
 	})
 
-	handler := c.Handler(http.DefaultServeMux)
+	// Wrap router with CORS handler
+	handler := c.Handler(r)
 
 	log.Println("Starting server on :8080 ...")
 
@@ -61,8 +46,19 @@ func main() {
 func triggerETL(w http.ResponseWriter, r *http.Request) {
 	log.Println("Starting ETL process...")
 
+	// Get customer ID from URL parameters and map to bucket name
+	vars := mux.Vars(r)
+	customerId := vars["customer-id"]
+	bucketName, err := getBucketName(customerId)
+	if err != nil {
+		log.Printf("Error mapping customer ID: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Error mapping customer ID: %v", err)
+		return
+	}
+
 	// Step 1: Download data from GCS
-	if err := downloadBucket("medlaunch", "data"); err != nil {
+	if err := downloadBucket(bucketName, "data"); err != nil {
 		log.Printf("Error downloading data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error downloading data: %v", err)
@@ -81,9 +77,10 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	log.Println("Data transformation complete")
 
 	// Step 3: Upload transformed data to GCS
-	bucketName := "medlaunch-transformed"
-	objectName := "facility-provider-hierarchy.json"
-	if err := uploadBucket(bucketName, objectName, jsonData); err != nil {
+	// Use transformed bucket for output
+	transformedBucketName := bucketName + "-transformed"
+	var objectName = "facility-provider-hierarchy.json"
+	if err := uploadBucket(transformedBucketName, objectName, jsonData); err != nil {
 		log.Printf("Error uploading transformed data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error uploading transformed data: %v", err)
@@ -96,6 +93,18 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 }
 
 func triggerETLTest(w http.ResponseWriter, r *http.Request) {
+	// Get customer ID from URL parameters and map to bucket name
+	vars := mux.Vars(r)
+	customerId := vars["customer-id"]
+
+	bucketName, err := getBucketName(customerId)
+
+	if err != nil {
+		log.Printf("Error mapping customer ID: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Error mapping customer ID: %v", err)
+		return
+	}
 
 	// Step 2: Transform data
 	jsonData, err := transformData()
@@ -108,9 +117,10 @@ func triggerETLTest(w http.ResponseWriter, r *http.Request) {
 	log.Println("Data transformation complete")
 
 	// Step 3: Upload transformed data to GCS
-	bucketName := "medlaunch-transformed"
-	objectName := "facility-provider-hierarchy.json"
-	if err := uploadBucket(bucketName, objectName, jsonData); err != nil {
+	// Use transformed bucket for output
+	transformedBucketName := bucketName + "-transformed"
+	var objectName = "facility-provider-hierarchy.json"
+	if err := uploadBucket(transformedBucketName, objectName, jsonData); err != nil {
 		log.Printf("Error uploading transformed data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error uploading transformed data: %v", err)
@@ -125,8 +135,19 @@ func triggerETLTest(w http.ResponseWriter, r *http.Request) {
 func tableDataHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// We will pull the bucketname out of the request object when a cloud function passes it in.
-	bucketName := "medlaunch-transformed"
+	// Get customer ID from URL parameters and map to bucket name
+	vars := mux.Vars(r)
+	customerId := vars["customer-id"]
+	bucketName, err := getBucketName(customerId)
+	if err != nil {
+		log.Printf("Error mapping customer ID: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Error mapping customer ID: %v", err)
+		return
+	}
+
+	transformedBucketName := bucketName + "-transformed"
+
 	objectName := "facility-provider-hierarchy.json"
 
 	client, err := storage.NewClient(ctx)
@@ -138,7 +159,7 @@ func tableDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer client.Close()
 
-	rc, err := client.Bucket(bucketName).Object(objectName).NewReader(ctx)
+	rc, err := client.Bucket(transformedBucketName).Object(objectName).NewReader(ctx)
 	if err != nil {
 		log.Printf("Failed to read object: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)

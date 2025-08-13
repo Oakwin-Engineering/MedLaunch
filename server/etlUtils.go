@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Generic function to process charges from CSV and return total amounts by key
@@ -134,9 +135,9 @@ func processProviderCodeRelationships(filePath string) (map[string]map[string]in
 }
 
 // processProviderFacilityRelationships reads a CSV file and extracts provider-facility relationships
-func processProviderFacilityRelationships(path string) (map[string]map[string]bool, map[string][]string) {
+func processProviderFacilityRelationships(filePath string) (map[string]map[string]bool, map[string][]string) {
 	// Read and parse the CSV file
-	file, err := os.Open(path)
+	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, nil
 	}
@@ -187,4 +188,80 @@ func processProviderFacilityRelationships(path string) (map[string]map[string]bo
 	}
 
 	return facilityProviders, providerFacilities
+}
+
+func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]float64, string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, "", fmt.Errorf("error opening CSV file: %v", err)
+	}
+	defer file.Close()
+
+	csvReader := csv.NewReader(file)
+
+	// Skip header
+	_, err = csvReader.Read()
+	if err != nil {
+		return nil, "", fmt.Errorf("error reading CSV header: %v", err)
+	}
+
+	// Initialize result map: month -> provider -> total earnings
+	monthlyData := make(map[string]map[string]float64)
+
+	// Read and process each record
+	for {
+		record, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+
+		// Extract data from record
+		name := strings.Trim(record[0], "\"") // Provider name
+		payDate := record[5]                  // Pay date
+		grossPay := record[6]                 // Gross pay
+
+		// Parse the pay date
+		date, err := time.Parse("01/02/2006", payDate)
+		if err != nil {
+			continue
+		}
+
+		// Get month name from the common months array
+		month := months[date.Month()-1] // Month() returns 1-12, so we subtract 1 for 0-based index
+
+		// Clean and parse gross pay
+		grossPay = strings.Trim(grossPay, "\"")
+		grossPay = strings.ReplaceAll(grossPay, ",", "")
+		payAmount, err := strconv.ParseFloat(grossPay, 64)
+		if err != nil {
+			continue
+		}
+
+		// Initialize month map if it doesn't exist
+		if _, exists := monthlyData[month]; !exists {
+			monthlyData[month] = make(map[string]float64)
+		}
+
+		// Add pay amount to provider's total for the month
+		monthlyData[month][name] += payAmount
+	}
+
+	// Create slice of unique provider names
+	var uniqueProviders string
+	providerSet := make(map[string]bool)
+
+	// Collect unique provider names from all months
+	for _, providers := range monthlyData {
+		for provider := range providers {
+			if !providerSet[provider] {
+				providerSet[provider] = true
+				uniqueProviders += provider
+			}
+		}
+	}
+
+	return monthlyData, uniqueProviders, nil
 }

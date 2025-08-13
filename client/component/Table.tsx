@@ -97,7 +97,16 @@ export default function FinancialKpiTable({
                         align="center"
                         sx={{
                           fontWeight: isTotal ? 700 : 400,
-                          background: isTotal ? sectionColor : "",
+                          background:
+                            section === "Operating Profit Margin"
+                              ? val < 0
+                                ? "#ffcdd2"
+                                : val > 0
+                                  ? "#c8e6c9"
+                                  : ""
+                              : isTotal
+                                ? sectionColor
+                                : "",
                         }}
                       >
                         {row.isCurrency && val ? formatCurrency(val) : val}
@@ -158,7 +167,14 @@ export default function FinancialKpiTable({
                         align="center"
                         sx={{
                           fontWeight: isTotal ? 700 : 400,
-                          background: rowBg,
+                          background:
+                            section === "Operating Profit Margin"
+                              ? val < 0
+                                ? "#ffcdd2"
+                                : val > 0
+                                  ? "#c8e6c9"
+                                  : rowBg
+                              : rowBg,
                         }}
                       >
                         {row.isCurrency && val ? formatCurrency(val) : val}

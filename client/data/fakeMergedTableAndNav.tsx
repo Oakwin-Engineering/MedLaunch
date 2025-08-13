@@ -219,11 +219,11 @@ const baseData = [
     isCurrency: true,
   },
 
-  // Provider Income (Orange)
+  // Payroll (Orange)
   {
-    section: "Provider Income",
+    section: "Payroll",
     type: "data",
-    label: "Provider Income",
+    label: "Payroll",
     values: [
       "$12,577",
       "$13,277",
@@ -245,7 +245,7 @@ const baseData = [
     isSectionHeader: true,
   },
   {
-    section: "Provider Income",
+    section: "Payroll",
     type: "data",
     label: "% of Payments",
     values: [
@@ -267,7 +267,7 @@ const baseData = [
     colorGroup: "orange",
   },
   {
-    section: "Provider Income",
+    section: "Payroll",
     type: "data",
     label: "Average income per patient",
     values: ["$", "8", "8", "8", "8", "8", "8", "8", "8", "8", "8", "8"],
@@ -277,7 +277,7 @@ const baseData = [
     isCurrency: true,
   },
   {
-    section: "Provider Income",
+    section: "Payroll",
     type: "data",
     label: "Average income per RVU",
     values: ["$", "8", "8", "8", "8", "8", "8", "8", "8", "8", "8", "8"],

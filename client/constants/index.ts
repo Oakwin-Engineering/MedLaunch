@@ -5,6 +5,7 @@ export const colorMap: Record<string, string> = {
   blue: "#B3E5FC",
   green: "#C8E6C9",
   pink: "#F8BBD0",
+  lightPink: "#eac4ef",
 };
 
 export const tableMonths = [
@@ -24,8 +25,4 @@ export const tableMonths = [
   "Coding %",
 ];
 
-export const verticalSections = [
-  "Initial Visits",
-  "Subsequent Visits",
-  "Discharge",
-];
+export const verticalSections = ["CPT Codes", "Subsequent Visits", "Discharge"];

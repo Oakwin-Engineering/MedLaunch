@@ -21,12 +21,6 @@ import { useTreeItemModel } from "@mui/x-tree-view/hooks";
 
 type IconType = "clinic" | "person";
 
-type NavType = {
-  iconType: IconType;
-  id: string;
-  label: string;
-};
-
 const TreeItemRoot = styled("li")(({ theme }) => ({
   listStyle: "none",
   margin: 0,

@@ -91,7 +91,7 @@ func downloadBucket(bucket string, topFolder string) error {
 	return nil
 }
 
-// uploadBucket creates the bucket if needed and uploads the JSON
+// uploadBucket deletes the bucket if it exists, creates a new one, and uploads the JSON
 func uploadBucket(bucketName, objectName string, data []byte) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -99,14 +99,39 @@ func uploadBucket(bucketName, objectName string, data []byte) error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket(bucketName)
-	// Create bucket if it doesn't exist
 
-	if err := bucket.Create(ctx, PROJECT_ID, nil); err != nil {
-		if !isBucketExistsErr(err) {
-			return err
+	bucket := client.Bucket(bucketName)
+
+	// Delete all objects in the bucket first
+	it := bucket.Objects(ctx, nil)
+	for {
+		attr, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Printf("Warning: failed to list objects: %v", err)
+			break
+		}
+		if err := bucket.Object(attr.Name).Delete(ctx); err != nil {
+			log.Printf("Warning: failed to delete object %s: %v", attr.Name, err)
 		}
 	}
+
+	// Try to delete the bucket if it exists
+	if err := bucket.Delete(ctx); err != nil {
+		// Ignore error if bucket doesn't exist
+		if err != storage.ErrBucketNotExist {
+			log.Printf("Warning: failed to delete bucket: %v", err)
+		}
+	}
+
+	// Create new bucket
+	if err := bucket.Create(ctx, PROJECT_ID, nil); err != nil {
+		return fmt.Errorf("failed to create bucket: %v", err)
+	}
+
+	// Upload the object
 	obj := bucket.Object(objectName)
 	w := obj.NewWriter(ctx)
 	if _, err := w.Write(data); err != nil {
@@ -114,9 +139,4 @@ func uploadBucket(bucketName, objectName string, data []byte) error {
 		return err
 	}
 	return w.Close()
-}
-
-// isBucketExistsErr checks if the error is 'bucket exists'
-func isBucketExistsErr(err error) bool {
-	return err != nil && (err.Error() == "googleapi: Error 409: You already own this bucket. Please select another name., conflict")
 }

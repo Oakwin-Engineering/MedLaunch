@@ -98,7 +98,7 @@ func transformData() ([]byte, error) {
 	}
 
 	// Match provider names between Athelas system and ADP payroll system
-	namesMapping, err := matchProviderNames("List 1: "+allProvidersConcat+"List 2: "+uniqueADPProviderNames, true)
+	namesMapping, err := matchProviderNames("List 1: "+allProvidersConcat+"List 2: "+uniqueADPProviderNames, false)
 	if err != nil {
 		fmt.Printf("Error matching provider names: %v\n", err)
 		return nil, fmt.Errorf("failed to match provider names: %v", err)

@@ -28,6 +28,7 @@ func main() {
 
 	// Serve static files from /out directory
 	fs := http.FileServer(http.Dir("./out"))
+	// Handle customer paths
 	r.PathPrefix("/{customer-id}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		customerID := vars["customer-id"]
@@ -40,6 +41,15 @@ func main() {
 		}
 
 		// For all other paths, serve from the static directory
+		fs.ServeHTTP(w, r)
+	})
+
+	// Handle root path
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.ServeFile(w, r, "./out/index.html")
+			return
+		}
 		fs.ServeHTTP(w, r)
 	})
 

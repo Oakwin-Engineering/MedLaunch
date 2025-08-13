@@ -25,4 +25,9 @@ export const tableMonths = [
   "Coding %",
 ];
 
-export const verticalSections = ["CPT Codes", "Subsequent Visits", "Discharge"];
+export const verticalSections = [
+  "CPT Codes",
+  "Subsequent Visits",
+  "Discharge",
+  "Initial Visits",
+];

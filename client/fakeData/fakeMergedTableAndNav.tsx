@@ -218,7 +218,6 @@ const baseData = [
     colorGroup: "pink",
     isCurrency: true,
   },
-
   // Payroll (Orange)
   {
     section: "Payroll",
@@ -244,6 +243,20 @@ const baseData = [
     isCurrency: true,
     isSectionHeader: true,
   },
+  // Adjustments (Pink)
+  {
+    section: "Operating Profit Margin",
+    type: "data",
+    label: "Operating Profit Margin",
+    values: [
+      5432.8, -2345.6, 7891.2, -3456.7, 4567.8, -1234.5, 8765.4, -4321.8,
+      6789.2, -2987.6, 5678.9, 3456.7,
+    ],
+    total: 189561,
+    coding: "-",
+    isCurrency: true,
+  },
+
   {
     section: "Payroll",
     type: "data",
@@ -290,80 +303,121 @@ const baseData = [
 
 const ITEMS = [
   {
-    id: "emma_watson",
-    label: "Emma Watson",
+    id: "riverside_medical_center",
+    label: "Riverside Medical Center",
     data: baseData,
     iconType: "clinic",
     children: [
       {
-        id: "division_alcatraz",
-        label: "Division Alcatraz",
-        data: baseData,
-        iconType: "clinic",
-        children: [
-          { id: "daniel_craig", label: "Daniel Craig", iconType: "person" },
-          {
-            id: "scarlett_johansson",
-            label: "Scarlett Johansson",
-            iconType: "person",
-          },
-          { id: "chris_evans", label: "Chris Evans", iconType: "person" },
-          { id: "tom_hanks", label: "Tom Hanks", iconType: "person" },
-          {
-            id: "zendaya_coleman",
-            label: "Zendaya Coleman",
-            iconType: "person",
-          },
-        ],
+        id: "dr_michael_chen",
+        label: "Dr. Michael Chen",
+        iconType: "person",
+        data: baseData
       },
       {
-        id: "robert_downey_jr",
-        label: "Robert Downey Jr.",
+        id: "dr_sarah_patel",
+        label: "Dr. Sarah Patel",
         iconType: "person",
-        data: baseData,
+        data: baseData
       },
       {
-        id: "natalie_portman",
-        label: "Natalie Portman",
+        id: "dr_james_wilson",
+        label: "Dr. James Wilson",
         iconType: "person",
-        data: baseData,
+        data: baseData
       },
-    ],
+      {
+        id: "dr_emily_rodriguez",
+        label: "Dr. Emily Rodriguez",
+        iconType: "person",
+        data: baseData
+      },
+      {
+        id: "dr_david_kim",
+        label: "Dr. David Kim",
+        iconType: "person",
+        data: baseData
+      },
+      {
+        id: "dr_rebecca_thompson",
+        label: "Dr. Rebecca Thompson",
+        iconType: "person",
+        data: baseData
+      },
+      {
+        id: "dr_john_martinez",
+        label: "Dr. John Martinez",
+        iconType: "person",
+        data: baseData
+      }
+    ]
   },
   {
-    id: "bookmarked",
-    label: "Bookmarked",
+    id: "lakeside_clinic",
+    label: "Lakeside Clinic",
     iconType: "clinic",
     data: baseData,
     children: [
       {
-        id: "leonardo_dicaprio",
-        label: "Leonardo DiCaprio",
-        iconType: "clinic",
-        data: baseData,
+        id: "dr_lisa_chang",
+        label: "Dr. Lisa Chang",
+        iconType: "person",
+        data: baseData
       },
       {
-        id: "jennifer_lawrence",
-        label: "Jennifer Lawrence",
+        id: "dr_robert_anderson",
+        label: "Dr. Robert Anderson",
         iconType: "person",
-        data: baseData,
+        data: baseData
       },
       {
-        id: "morgan_freeman",
-        label: "Morgan Freeman",
+        id: "dr_maria_gonzalez",
+        label: "Dr. Maria Gonzalez",
         iconType: "person",
-        data: baseData,
-      },
-      {
-        id: "emma_stone",
-        label: "Emma Stone",
-        iconType: "person",
-        data: baseData,
-      },
-    ],
+        data: baseData
+      }
+    ]
   },
-  { id: "history", label: "History", iconType: "clinic", data: baseData },
-  { id: "trash", label: "Trash", iconType: "clinic", data: baseData },
+  {
+    id: "eastside_medical_group",
+    label: "Eastside Medical Group",
+    iconType: "clinic",
+    data: baseData,
+    children: [
+      {
+        id: "dr_thomas_wilson",
+        label: "Dr. Thomas Wilson",
+        iconType: "person",
+        data: baseData
+      },
+      {
+        id: "dr_jennifer_lee",
+        label: "Dr. Jennifer Lee",
+        iconType: "person",
+        data: baseData
+      }
+    ]
+  },
+  {
+    id: "central_healthcare_partners",
+    label: "Central Healthcare Partners",
+    iconType: "clinic",
+    data: baseData,
+    children: [
+      {
+        id: "dr_william_taylor",
+        label: "Dr. William Taylor",
+        iconType: "person",
+        data: baseData
+      },
+      {
+        id: "dr_elizabeth_brown",
+        label: "Dr. Elizabeth Brown",
+        iconType: "person",
+        data: baseData
+      }
+    ]
+  }
 ];
 
 export default ITEMS;

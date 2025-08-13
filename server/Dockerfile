@@ -13,8 +13,6 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-# Copy the client's out directory
-COPY ../client/out ./out
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server

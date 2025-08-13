@@ -28,9 +28,6 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /app/server .
 
-# Copy the out directory for static files
-COPY --from=builder /app/out ./out
-
 # Set environment variables
 ENV PORT=8080
 

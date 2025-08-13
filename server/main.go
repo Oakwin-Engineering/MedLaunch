@@ -22,10 +22,26 @@ func main() {
 	// Initialize router
 	r := mux.NewRouter()
 
-	// Register routes
 	r.HandleFunc("/trigger-etl/{customer-id}", triggerETL)
 	r.HandleFunc("/trigger-etl-test/{customer-id}", triggerETLTest)
 	r.HandleFunc("/table-data/{customer-id}", tableDataHandler)
+
+	// Serve static files from /out directory
+	fs := http.FileServer(http.Dir("./out"))
+	r.PathPrefix("/{customer-id}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		customerID := vars["customer-id"]
+
+		// Check if it's a valid customer ID
+		if customerID == "uhealth" || customerID == "demo" {
+			// Serve the customer-specific HTML file
+			http.ServeFile(w, r, fmt.Sprintf("./out/%s.html", customerID))
+			return
+		}
+
+		// For all other paths, serve from the static directory
+		fs.ServeHTTP(w, r)
+	})
 
 	// Enable CORS
 	c := cors.New(cors.Options{

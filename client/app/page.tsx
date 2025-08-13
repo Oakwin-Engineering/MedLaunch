@@ -34,7 +34,7 @@ export default function Home() {
         </Typography>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
           <Link
-            href="/1f10153b-8f03-4608-a4f7-e225efc8b4b4"
+            href="/uhealth"
             style={{
               textDecoration: "none",
               backgroundColor: "#1976d2",
@@ -47,7 +47,7 @@ export default function Home() {
             UHealth Data
           </Link>
           <Link
-            href="/c1d17c1b-f8e3-479b-89ef-cf10bf2f1751"
+            href="/demo"
             style={{
               textDecoration: "none",
               backgroundColor: "#2e7d32",

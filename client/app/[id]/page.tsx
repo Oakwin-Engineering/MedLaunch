@@ -49,7 +49,7 @@ export default function Page({ params }: { params: { id: string } }) {
     setIsLoading(true);
     setError(null);
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/table-data/${id}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/table-data/${id}`)
       .then(async (response) => {
         if (!response.ok) {
           const errorText = await response.text();

@@ -31,7 +31,6 @@ func contains(slice []string, str string) bool {
 func getBucketName(customerId string) (string, error) {
 	customerId = strings.ToLower(customerId)
 	for _, customer := range customers {
-		fmt.Print(customer, customerId)
 		if customer == customerId {
 			return customer, nil
 		}

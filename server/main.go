@@ -8,8 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
@@ -28,23 +26,30 @@ func main() {
 	r.HandleFunc("/trigger-etl-test/{customer-id}", triggerETLTest)
 	r.HandleFunc("/table-data/{customer-id}", tableDataHandler)
 
-	// Serve SvelteKit static build with SPA fallback
-	staticDir := "./build"
-	fs := http.FileServer(http.Dir(staticDir))
+	// Serve static files from /out directory
+	fs := http.FileServer(http.Dir("./out"))
+	// Handle customer paths
+	r.PathPrefix("/{customer-id}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		customerID := vars["customer-id"]
 
-	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Construct the path to the file in the static directory
-		filePath := filepath.Join(staticDir, r.URL.Path)
-
-		// Check if the file exists
-		_, err := os.Stat(filePath)
-		if os.IsNotExist(err) {
-			// File does not exist, serve the SPA fallback page
-			http.ServeFile(w, r, filepath.Join(staticDir, "200.html"))
+		// Check if it's a valid customer ID
+		if customerID == "uhealth" || customerID == "demo" {
+			// Serve the customer-specific HTML file
+			http.ServeFile(w, r, fmt.Sprintf("./out/%s.html", customerID))
 			return
 		}
 
-		// Serve the existing file
+		// For all other paths, serve from the static directory
+		fs.ServeHTTP(w, r)
+	})
+
+	// Handle root path
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.ServeFile(w, r, "./out/index.html")
+			return
+		}
 		fs.ServeHTTP(w, r)
 	})
 
@@ -108,14 +113,6 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("Data upload complete")
-
-	// Step 4: Delete local /data folder
-	if err := os.RemoveAll("data"); err != nil {
-		log.Printf("Error deleting local data directory: %v", err)
-		// Depending on requirements, you might want to handle this error differently
-	} else {
-		log.Println("Local data directory deleted successfully")
-	}
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "ETL process completed successfully")

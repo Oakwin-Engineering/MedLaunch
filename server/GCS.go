@@ -13,7 +13,7 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-const PROJECT_ID = "medlaunch-467423"
+const PROJECT_ID = "medlaunch-469521"
 
 // downloadBucket downloads all objects under a given prefix (folder) from a GCS bucket
 func downloadBucket(bucket string, topFolder string) error {

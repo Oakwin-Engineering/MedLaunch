@@ -84,7 +84,7 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 1: Download data from GCS
-	if err := downloadBucket(bucketName, "data"); err != nil {
+	if err := downloadBucket(bucketName+"-pretransformed", "data"); err != nil {
 		log.Printf("Error downloading data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error downloading data: %v", err)

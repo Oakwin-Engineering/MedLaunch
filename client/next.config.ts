@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_API_URL:
       process.env.NODE_ENV === "production"
-        ? "https://medlaunch-server-827675494553.us-east1.run.app"
+        ? "https://medlaunch-112161079039.us-central1.run.app"
         : "http://localhost:8080",
   },
 };

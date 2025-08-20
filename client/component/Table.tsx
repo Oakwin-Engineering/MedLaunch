@@ -6,14 +6,28 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
+import IconButton from "@mui/material/IconButton";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { formatCurrency } from "../utils";
 import { colorMap, tableMonths, verticalSections } from "../constants";
+
+const collapsibleSections = ["Payroll", "RVUs", "Charges", "Payments"];
 
 export default function FinancialKpiTable({
   tableData = [],
 }: {
   tableData: any[];
 }) {
+  const [collapsedState, setCollapsedState] = React.useState<
+    Record<string, boolean>
+  >(
+    collapsibleSections.reduce(
+      (acc, sectionName) => ({ ...acc, [sectionName]: true }),
+      {}
+    )
+  );
+
   if (tableData.length === 0) return null;
 
   const grouped: Record<string, any[]> = {};
@@ -144,9 +158,28 @@ export default function FinancialKpiTable({
                 const isTotal = row.type === "total";
                 const rowBg = row.isSectionHeader ? sectionColor : "#fff";
 
+                const isCollapsible = collapsibleSections.includes(section);
+                const isHeader = row.isSectionHeader;
+                const isCollapsed = collapsedState[section];
+                const hasChildren = rows.length > 1;
+
+                if (isCollapsible && !isHeader && isCollapsed && hasChildren) {
+                  return null;
+                }
+
+                const isCollapsibleHeader = isCollapsible && isHeader && hasChildren;
+
                 return (
                   <TableRow
                     key={(row.code || row.label || "row") + section + rowIdx}
+                    onClick={() =>
+                      isCollapsibleHeader &&
+                      setCollapsedState((prev) => ({
+                        ...prev,
+                        [section]: !prev[section],
+                      }))
+                    }
+                    sx={{ cursor: isCollapsibleHeader ? "pointer" : "default" }}
                   >
                     {/* Empty section cell for alignment */}
                     <TableCell
@@ -157,8 +190,19 @@ export default function FinancialKpiTable({
                         fontWeight: isTotal ? 700 : 500,
                         fontSize: 14,
                         background: rowBg,
+                        display: "flex",
+                        alignItems: "center",
                       }}
                     >
+                      {isCollapsibleHeader && (
+                        <IconButton size="small">
+                          {isCollapsed ? (
+                            <KeyboardArrowDownIcon />
+                          ) : (
+                            <KeyboardArrowUpIcon />
+                          )}
+                        </IconButton>
+                      )}
                       {row.code ? row.code : row.label}
                     </TableCell>
                     {row.values.map((val: any, i: number) => (

@@ -312,45 +312,45 @@ const ITEMS = [
         id: "dr_michael_chen",
         label: "Dr. Michael Chen",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_sarah_patel",
         label: "Dr. Sarah Patel",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_james_wilson",
         label: "Dr. James Wilson",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_emily_rodriguez",
         label: "Dr. Emily Rodriguez",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_david_kim",
         label: "Dr. David Kim",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_rebecca_thompson",
         label: "Dr. Rebecca Thompson",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_john_martinez",
         label: "Dr. John Martinez",
         iconType: "person",
-        data: baseData
-      }
-    ]
+        data: baseData,
+      },
+    ],
   },
   {
     id: "lakeside_clinic",
@@ -362,21 +362,21 @@ const ITEMS = [
         id: "dr_lisa_chang",
         label: "Dr. Lisa Chang",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_robert_anderson",
         label: "Dr. Robert Anderson",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_maria_gonzalez",
         label: "Dr. Maria Gonzalez",
         iconType: "person",
-        data: baseData
-      }
-    ]
+        data: baseData,
+      },
+    ],
   },
   {
     id: "eastside_medical_group",
@@ -388,15 +388,15 @@ const ITEMS = [
         id: "dr_thomas_wilson",
         label: "Dr. Thomas Wilson",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_jennifer_lee",
         label: "Dr. Jennifer Lee",
         iconType: "person",
-        data: baseData
-      }
-    ]
+        data: baseData,
+      },
+    ],
   },
   {
     id: "central_healthcare_partners",
@@ -408,16 +408,16 @@ const ITEMS = [
         id: "dr_william_taylor",
         label: "Dr. William Taylor",
         iconType: "person",
-        data: baseData
+        data: baseData,
       },
       {
         id: "dr_elizabeth_brown",
         label: "Dr. Elizabeth Brown",
         iconType: "person",
-        data: baseData
-      }
-    ]
-  }
+        data: baseData,
+      },
+    ],
+  },
 ];
 
 export default ITEMS;

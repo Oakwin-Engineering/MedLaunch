@@ -98,7 +98,7 @@ func transformData() ([]byte, error) {
 	}
 
 	// Match provider names between Athelas system and ADP payroll system
-	namesMapping, err := matchProviderNames("List 1: "+allProvidersConcat+"List 2: "+uniqueADPProviderNames, false)
+	namesMapping, err := matchProviderNames("List 1: "+allProvidersConcat+"List 2: "+uniqueADPProviderNames, true)
 	if err != nil {
 		fmt.Printf("Error matching provider names: %v\n", err)
 		return nil, fmt.Errorf("failed to match provider names: %v", err)
@@ -148,6 +148,15 @@ func transformData() ([]byte, error) {
 			monthlyProviderVisits[month] = providerVisits
 		}
 	}
+
+	// Rollup Data of all providers
+	// var providerRollUp = &Node{
+	// 	ID:       "provider_rollup",
+	// 	Label:    "All Providers",
+	// 	IconType: "clinic",
+	// 	Data:     nil,
+	// 	Children: []*Node{},
+	// }
 
 	// Map to track provider occurrences across all facilities
 	providerOccurrences := make(map[string]int)
@@ -558,9 +567,210 @@ func transformData() ([]byte, error) {
 		items = append(items, facilityNode)
 	}
 
-	// Sort facilities alphabetically by label
+	// Create "All Providers" aggregate node
+	allProvidersNode := &Node{
+		ID:       "all-providers",
+		Label:    "All Providers",
+		IconType: "clinic",
+		Children: []*Node{}, // Empty as requested
+	}
+
+	// Aggregate data for all unique providers
+	allProvidersChargesValues := make([]float64, 12)
+	allProvidersCollectionsValues := make([]float64, 12)
+	allProvidersVisitsValues := make([]float64, 12)
+	allProvidersPayrollValues := make([]float64, 12)
+	allProvidersOPMValues := make([]float64, 12)
+	allProvidersCodeValues := make(map[string][]float64)
+
+	// Get a list of all unique provider names
+	uniqueProviders := make([]string, 0, len(mergedProviderFacilities))
+	for provider := range mergedProviderFacilities {
+		uniqueProviders = append(uniqueProviders, provider)
+	}
+
+	for _, provider := range uniqueProviders {
+		for i, month := range months {
+			// Aggregate charges
+			if monthData, exists := monthlyProviderTotals[month]; exists {
+				if total, ok := monthData[provider]; ok {
+					allProvidersChargesValues[i] += total
+				}
+			}
+			// Aggregate collections
+			if monthData, exists := monthlyProviderCollections[month]; exists {
+				if total, ok := monthData[provider]; ok {
+					allProvidersCollectionsValues[i] += total
+				}
+			}
+			// Aggregate visits
+			if monthData, exists := monthlyProviderVisits[month]; exists {
+				if total, ok := monthData[provider]; ok {
+					allProvidersVisitsValues[i] += total
+				}
+			}
+			// Aggregate payroll
+			if payroll, exists := monthlyProviderPayrolls[month][namesMapping[provider]]; exists {
+				allProvidersPayrollValues[i] += payroll
+			}
+			// Aggregate codes
+			if monthData, exists := monthlyProviderCodes[month]; exists {
+				if providerData, ok := monthData[provider]; ok {
+					for code, count := range providerData {
+						if _, exists := allProvidersCodeValues[code]; !exists {
+							allProvidersCodeValues[code] = make([]float64, 12)
+						}
+						allProvidersCodeValues[code][i] += float64(count)
+					}
+				}
+			}
+		}
+	}
+
+	// Calculate monthly OPM for all providers
+	for i := 0; i < 12; i++ {
+		if allProvidersCollectionsValues[i] > 0 && allProvidersPayrollValues[i] > 0 {
+			allProvidersOPMValues[i] = allProvidersCollectionsValues[i] - allProvidersPayrollValues[i]
+		} else {
+			allProvidersOPMValues[i] = 0
+		}
+	}
+
+	// Calculate totals for all providers
+	allProvidersChargesTotal := 0.0
+	allProvidersCollectionsTotal := 0.0
+	allProvidersVisitsTotal := 0.0
+	allProvidersPayrollTotal := 0.0
+	allProvidersOPMTotal := 0.0
+
+	for i := 0; i < 12; i++ {
+		allProvidersChargesTotal += allProvidersChargesValues[i]
+		allProvidersCollectionsTotal += allProvidersCollectionsValues[i]
+		allProvidersVisitsTotal += allProvidersVisitsValues[i]
+		allProvidersPayrollTotal += allProvidersPayrollValues[i]
+		allProvidersOPMTotal += allProvidersOPMValues[i]
+	}
+
+	// Build "All Providers" metrics data
+	allProvidersData := []MetricData{}
+	allProvidersTotalVisitsByMonth := make([]float64, 12)
+	var allProvidersTotalVisitsSum float64
+
+	// Calculate total visits for CPT codes for percentage calculation
+	for _, values := range allProvidersCodeValues {
+		total := 0.0
+		for _, v := range values {
+			total += v
+		}
+		allProvidersTotalVisitsSum += total
+	}
+
+	// Add CPT code metrics
+	for code, values := range allProvidersCodeValues {
+		total := 0.0
+		for i, v := range values {
+			total += v
+			allProvidersTotalVisitsByMonth[i] += v
+		}
+
+		codingPercentage := 0
+		if allProvidersTotalVisitsSum > 0 {
+			codingPercentage = int((total / allProvidersTotalVisitsSum) * 100)
+		}
+
+		allProvidersData = append(allProvidersData, MetricData{
+			Section:    "CPT Codes",
+			Type:       "data",
+			Code:       code,
+			Values:     values,
+			Total:      total,
+			Coding:     fmt.Sprintf("%d%%", codingPercentage),
+			ColorGroup: "yellow",
+		})
+	}
+
+	// Add total visits metric for CPT codes
+	allProvidersData = append(allProvidersData, MetricData{
+		Section:    "CPT Codes",
+		Type:       "total",
+		Label:      "Total",
+		Values:     allProvidersTotalVisitsByMonth,
+		Total:      allProvidersTotalVisitsSum,
+		Coding:     "-",
+		ColorGroup: "yellow",
+	})
+
+	// Add other metrics
+	allProvidersData = append(allProvidersData, MetricData{
+		Section:    "Totals",
+		Type:       "data",
+		Label:      "Total Visits",
+		Values:     allProvidersVisitsValues,
+		Total:      allProvidersVisitsTotal,
+		Coding:     "-",
+		ColorGroup: "orange",
+	})
+
+	allProvidersData = append(allProvidersData, MetricData{
+		Section:         "Charges",
+		Type:            "data",
+		Label:           "Charges",
+		Values:          allProvidersChargesValues,
+		Total:           allProvidersChargesTotal,
+		Coding:          "-",
+		ColorGroup:      "lightPink",
+		IsSectionHeader: true,
+		IsCurrency:      true,
+	})
+
+	allProvidersData = append(allProvidersData, MetricData{
+		Section:         "Payments",
+		Type:            "data",
+		Label:           "Payments",
+		Values:          allProvidersCollectionsValues,
+		Total:           allProvidersCollectionsTotal,
+		Coding:          "-",
+		ColorGroup:      "blue",
+		IsSectionHeader: true,
+		IsCurrency:      true,
+	})
+
+	allProvidersData = append(allProvidersData, MetricData{
+		Section:         "Payroll",
+		Type:            "data",
+		Label:           "Payroll",
+		Values:          allProvidersPayrollValues,
+		Total:           allProvidersPayrollTotal,
+		Coding:          "-",
+		ColorGroup:      "orange",
+		IsSectionHeader: true,
+		IsCurrency:      true,
+	})
+
+	allProvidersData = append(allProvidersData, MetricData{
+		Section:         "Operating Profit Margin",
+		Type:            "data",
+		Label:           "Operating Profit Margin",
+		Values:          allProvidersOPMValues,
+		Total:           allProvidersOPMTotal,
+		Coding:          "-",
+		ColorGroup:      "-",
+		IsSectionHeader: true,
+		IsCurrency:      true,
+	})
+
+	allProvidersNode.Data = allProvidersData
+	items = append(items, allProvidersNode)
+
+	// Sort facilities alphabetically by label, keeping "All Providers" at the beginning
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].Label < items[j].Label
+		if items[i].Label == "All Providers" {
+			return true // "All Providers" comes first
+		}
+		if items[j].Label == "All Providers" {
+			return false // "All Providers" comes first
+		}
+		return items[i].Label < items[j].Label // otherwise, sort alphabetically
 	})
 
 	// Marshal the data to JSON

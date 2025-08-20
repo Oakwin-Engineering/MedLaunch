@@ -59,6 +59,8 @@ export default function Page({ params }: { params: { id: string } }) {
       })
       .then((data) => {
         setMergedTableAndNav(data);
+        // Select all providers upon landing
+        setLastClickedItem("all-providers");
         setIsLoading(false);
       })
       .catch((error) => {

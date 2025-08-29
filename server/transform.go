@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -30,8 +31,7 @@ type MetricData struct {
 	IsSectionHeader bool      `json:"isSectionHeader,omitempty"`
 }
 
-// transformData processes all CSV files and returns the JSON data
-func transformData() ([]byte, error) {
+func uHealthTransform() ([]byte, error) {
 	fmt.Println("Transforming data...")
 	// Initialize maps to store merged relationships
 	mergedFacilityProviders := make(map[string]map[string]bool)
@@ -148,15 +148,6 @@ func transformData() ([]byte, error) {
 			monthlyProviderVisits[month] = providerVisits
 		}
 	}
-
-	// Rollup Data of all providers
-	// var providerRollUp = &Node{
-	// 	ID:       "provider_rollup",
-	// 	Label:    "All Providers",
-	// 	IconType: "clinic",
-	// 	Data:     nil,
-	// 	Children: []*Node{},
-	// }
 
 	// Map to track provider occurrences across all facilities
 	providerOccurrences := make(map[string]int)
@@ -780,4 +771,385 @@ func transformData() ([]byte, error) {
 	}
 
 	return jsonData, nil
+}
+func vitalCareTransform() ([]byte, error) {
+	// File paths
+	financialAnalysisPath := "data/financial_analysis.csv"
+	providerLocationPath := "data/provider_location_relationship.csv"
+	rvuPath := "data/rvu.csv"
+
+	// Process financial data
+	charges, err := processChargesVitalCare(financialAnalysisPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process charges: %w", err)
+	}
+
+	payments, err := processPaymentsVitalCare(financialAnalysisPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process payments: %w", err)
+	}
+	adjustments, err := processContractualAdjustmentsVitalCare(financialAnalysisPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process contractual adjustments: %w", err)
+	}
+	uniqueCPTCodes, err := getUniqueCPTCodes(financialAnalysisPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unique CPT codes: %w", err)
+	}
+
+	rvus, err := processRVUsVitalCare(rvuPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process RVUs: %w", err)
+	}
+
+	totalVisits, err := processTotalVisitsVitalCare(rvuPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process total visits: %w", err)
+	}
+
+	// Process provider-location relationships
+	locationProviderMap, uniqueProviders, err := processProviderLocationRelationshipVitalCare(providerLocationPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process provider location relationships: %w", err)
+	}
+
+	var items []*Node
+
+	// Create a reverse map for provider to locations
+	providerToLocationMap := make(map[string][]string)
+	for loc, provs := range locationProviderMap {
+		for _, p := range provs {
+			providerToLocationMap[p] = append(providerToLocationMap[p], loc)
+		}
+	}
+
+	// Map to track provider occurrences across all locations
+	providerOccurrences := make(map[string]int)
+
+	// Create nodes for each location
+	for location, providers := range locationProviderMap {
+		locationNode := &Node{
+			ID:       slugify(location),
+			Label:    location,
+			IconType: "clinic",
+			Children: []*Node{},
+		}
+
+		locationChargesValues := make([]float64, 12)
+		locationPaymentsValues := make([]float64, 12)
+		locationAdjustmentsValues := make([]float64, 12)
+		locationRvusValues := make([]float64, 12)
+		locationTotalVisitsValues := make([]float64, 12)
+		locationCptData := make(map[string]map[string][]float64)
+
+		for _, providerName := range providers {
+			// Get occurrence number for this provider
+			providerOccurrences[providerName]++
+			occurrence := 1
+
+			// If provider appears in multiple locations, find which occurrence this is
+			if len(providerToLocationMap[providerName]) > 1 {
+				for i, l := range providerToLocationMap[providerName] {
+					if l == location {
+						occurrence = i + 1
+						break
+					}
+				}
+			}
+
+			// Create provider ID with occurrence number if needed
+			providerID := slugify(providerName)
+			if len(providerToLocationMap[providerName]) > 1 {
+				providerID = fmt.Sprintf("%s_%d", providerID, occurrence)
+			}
+
+			providerNode := &Node{
+				ID:       providerID,
+				Label:    providerName,
+				IconType: "person",
+			}
+
+			providerChargesValues := make([]float64, 12)
+			providerPaymentsValues := make([]float64, 12)
+			providerAdjustmentsValues := make([]float64, 12)
+			providerRvusValues := make([]float64, 12)
+			providerTotalVisitsValues := make([]float64, 12)
+			providerCptData := make(map[string]map[string][]float64)
+
+			// Process RVUs and Total Visits once per provider for all months
+			for i, month := range months {
+				if monthRVUs, ok := rvus[month]; ok {
+					if val, ok := monthRVUs[providerName]; ok {
+						providerRvusValues[i] = float64(val)
+					}
+				}
+				if monthTotalVisits, ok := totalVisits[month]; ok {
+					if val, ok := monthTotalVisits[providerName]; ok {
+						providerTotalVisitsValues[i] = float64(val)
+					}
+				}
+			}
+
+			for _, cptCode := range uniqueCPTCodes {
+				cptChargesValues := make([]float64, 12)
+				dataFound := false
+
+				for i, month := range months {
+					if monthCharges, ok := charges[month]; ok {
+						if cptCharges, ok := monthCharges[cptCode]; ok {
+							if val, ok := cptCharges[providerName]; ok && val != 0 {
+								cptChargesValues[i] = val
+								providerChargesValues[i] += val
+								dataFound = true
+							}
+						}
+					}
+					if monthPayments, ok := payments[month]; ok {
+						if cptPayments, ok := monthPayments[cptCode]; ok {
+							if val, ok := cptPayments[providerName]; ok {
+								providerPaymentsValues[i] += val
+							}
+						}
+					}
+					if monthAdjustments, ok := adjustments[month]; ok {
+						if cptAdjustments, ok := monthAdjustments[cptCode]; ok {
+							if val, ok := cptAdjustments[providerName]; ok {
+								providerAdjustmentsValues[i] += val
+							}
+						}
+					}
+				}
+
+				if dataFound {
+					if _, ok := providerCptData[cptCode]; !ok {
+						providerCptData[cptCode] = make(map[string][]float64)
+						providerCptData[cptCode]["charges"] = make([]float64, 12)
+					}
+					providerCptData[cptCode]["charges"] = cptChargesValues
+				}
+			}
+
+			// Aggregate provider CPT data to location
+			for cptCode, data := range providerCptData {
+				if _, ok := locationCptData[cptCode]; !ok {
+					locationCptData[cptCode] = make(map[string][]float64)
+					locationCptData[cptCode]["charges"] = make([]float64, 12)
+				}
+				for i, charge := range data["charges"] {
+					locationCptData[cptCode]["charges"][i] += charge
+				}
+			}
+
+			// Aggregate provider data to location
+			for i := 0; i < 12; i++ {
+				locationChargesValues[i] += providerChargesValues[i]
+				locationPaymentsValues[i] += providerPaymentsValues[i]
+				locationAdjustmentsValues[i] += providerAdjustmentsValues[i]
+				locationRvusValues[i] += providerRvusValues[i]
+				locationTotalVisitsValues[i] += providerTotalVisitsValues[i]
+			}
+
+			providerNode.Data = buildMetricData(providerChargesValues, providerPaymentsValues, providerAdjustmentsValues, providerRvusValues, providerTotalVisitsValues, providerCptData)
+			locationNode.Children = append(locationNode.Children, providerNode)
+		}
+
+		locationNode.Data = buildMetricData(locationChargesValues, locationPaymentsValues, locationAdjustmentsValues, locationRvusValues, locationTotalVisitsValues, locationCptData)
+		items = append(items, locationNode)
+	}
+
+	// Create "All Providers" aggregate node
+	allProvidersNode := &Node{
+		ID:       "all-providers",
+		Label:    "All Providers",
+		IconType: "clinic",
+	}
+
+	allProvidersChargesValues := make([]float64, 12)
+	allProvidersPaymentsValues := make([]float64, 12)
+	allProvidersAdjustmentsValues := make([]float64, 12)
+	allProvidersRvusValues := make([]float64, 12)
+	allProvidersTotalVisitsValues := make([]float64, 12)
+	allProvidersCptData := make(map[string]map[string][]float64)
+
+	for _, providerName := range uniqueProviders {
+		for i, month := range months {
+			// Aggregate Charges, Payments, and Adjustments
+			for _, cptCode := range uniqueCPTCodes {
+				if monthCharges, ok := charges[month]; ok {
+					if cptCharges, ok := monthCharges[cptCode]; ok {
+						if val, ok := cptCharges[providerName]; ok && val != 0 {
+							allProvidersChargesValues[i] += val
+							if _, ok := allProvidersCptData[cptCode]; !ok {
+								allProvidersCptData[cptCode] = make(map[string][]float64)
+								allProvidersCptData[cptCode]["charges"] = make([]float64, 12)
+							}
+							allProvidersCptData[cptCode]["charges"][i] += val
+						}
+					}
+				}
+			}
+			if monthPayments, ok := payments[month]; ok {
+				for _, cptMap := range monthPayments {
+					if val, ok := cptMap[providerName]; ok {
+						allProvidersPaymentsValues[i] += val
+					}
+				}
+			}
+			if monthAdjustments, ok := adjustments[month]; ok {
+				for _, cptMap := range monthAdjustments {
+					if val, ok := cptMap[providerName]; ok {
+						allProvidersAdjustmentsValues[i] += val
+					}
+				}
+			}
+		}
+	}
+
+	// Aggregate RVUs and Total Visits for "All Providers"
+	for i, month := range months {
+		if monthRVUs, ok := rvus[month]; ok {
+			for _, rvuVal := range monthRVUs {
+				allProvidersRvusValues[i] += float64(rvuVal)
+			}
+		}
+		if monthTotalVisits, ok := totalVisits[month]; ok {
+			for _, visitVal := range monthTotalVisits {
+				allProvidersTotalVisitsValues[i] += float64(visitVal)
+			}
+		}
+	}
+
+	allProvidersNode.Data = buildMetricData(allProvidersChargesValues, allProvidersPaymentsValues, allProvidersAdjustmentsValues, allProvidersRvusValues, allProvidersTotalVisitsValues, allProvidersCptData)
+	items = append(items, allProvidersNode)
+
+	// Sort items alphabetically, keeping "All Providers" at the top
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Label == "All Providers" {
+			return true
+		}
+		if items[j].Label == "All Providers" {
+			return false
+		}
+		return items[i].Label < items[j].Label
+	})
+
+	return json.Marshal(items)
+}
+
+func transformData(clientName string) ([]byte, error) {
+	switch clientName {
+	case "uhealth":
+		return uHealthTransform()
+	case "vitalcare":
+		return vitalCareTransform()
+	default:
+		return nil, errors.New("no customer name sent in")
+	}
+}
+
+func buildMetricData(charges, payments, adjustments, rvus, totalVisits []float64, cptData map[string]map[string][]float64) []MetricData {
+	chargesTotal := 0.0
+	for _, v := range charges {
+		chargesTotal += v
+	}
+	paymentsTotal := 0.0
+	for _, v := range payments {
+		paymentsTotal += v
+	}
+	adjustmentsTotal := 0.0
+	for _, v := range adjustments {
+		adjustmentsTotal += v
+	}
+	rvusTotal := 0.0
+	for _, v := range rvus {
+		rvusTotal += v
+	}
+	totalVisitsTotal := 0.0
+	for _, v := range totalVisits {
+		totalVisitsTotal += v
+	}
+
+	metrics := []MetricData{}
+
+	// Add CPT code metrics first
+	cptChargesTotalSum := 0.0
+	for _, data := range cptData {
+		for _, v := range data["charges"] {
+			cptChargesTotalSum += v
+		}
+	}
+
+	for code, data := range cptData {
+		cptChargesTotal := 0.0
+		for _, v := range data["charges"] {
+			cptChargesTotal += v
+		}
+
+		codingPercentage := 0
+		if cptChargesTotalSum > 0 {
+			codingPercentage = int((cptChargesTotal / cptChargesTotalSum) * 100)
+		}
+
+		metrics = append(metrics, MetricData{
+			Section:    "CPT Codes",
+			Type:       "data",
+			Code:       code,
+			Values:     data["charges"],
+			Total:      cptChargesTotal,
+			Coding:     fmt.Sprintf("%d%%", codingPercentage),
+			ColorGroup: "yellow",
+		})
+	}
+
+	metrics = append(metrics,
+		MetricData{
+			Section:         "Charges",
+			Type:            "data",
+			Label:           "Billed Charges",
+			Values:          charges,
+			ColorGroup:      "yellow",
+			Total:           chargesTotal,
+			IsCurrency:      true,
+			IsSectionHeader: true,
+		},
+		MetricData{
+			Section:         "Payments",
+			Type:            "data",
+			Label:           "Payments",
+			ColorGroup:      "green",
+			Values:          payments,
+			Total:           paymentsTotal,
+			IsCurrency:      true,
+			IsSectionHeader: true,
+		},
+		MetricData{
+			Section:         "Adjustments",
+			Type:            "data",
+			Label:           "Contractual Adjustments",
+			ColorGroup:      "pink",
+			Values:          adjustments,
+			Total:           adjustmentsTotal,
+			IsCurrency:      true,
+			IsSectionHeader: true,
+		},
+		MetricData{
+			Section:         "RVUs",
+			Type:            "data",
+			Label:           "RVUs",
+			ColorGroup:      "purple",
+			Values:          rvus,
+			Total:           rvusTotal,
+			IsSectionHeader: true,
+		},
+		MetricData{
+			Section:         "Total Visits",
+			Type:            "data",
+			Label:           "Total Visits",
+			ColorGroup:      "blue",
+			Values:          totalVisits,
+			Total:           totalVisitsTotal,
+			IsSectionHeader: true,
+		},
+	)
+	return metrics
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -25,7 +26,8 @@ interface TableData {
 
 const drawerWidth = 280;
 
-export default function Page({ params }: { params: { id: string } }) {
+export default function Page() {
+  const params = useParams<{ id: string }>();
   const [lastClickedItem, setLastClickedItem] = useState<string | null>(null);
   const [mergedTableAndNav, setMergedTableAndNav] = useState([]);
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);

@@ -1,5 +1,4 @@
 // Sample storage-quickstart creates a Google Cloud Storage bucket.
-
 package main
 
 import (
@@ -93,7 +92,7 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	log.Println("Data download complete")
 
 	// Step 2: Transform data
-	jsonData, err := transformData()
+	jsonData, err := transformData(customerId)
 	if err != nil {
 		log.Printf("Error transforming data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -114,6 +113,12 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Data upload complete")
 
+	// Step 4: Delete local data folder
+	if err := deleteLocalData("data"); err != nil {
+		log.Printf("Warning: failed to delete local data: %v", err)
+		// Do not fail the whole process, just log a warning
+	}
+
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "ETL process completed successfully")
 }
@@ -133,7 +138,7 @@ func triggerETLTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 2: Transform data
-	jsonData, err := transformData()
+	jsonData, err := transformData(customerId)
 	if err != nil {
 		log.Printf("Error transforming data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)

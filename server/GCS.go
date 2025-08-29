@@ -140,3 +140,14 @@ func uploadBucket(bucketName, objectName string, data []byte) error {
 	}
 	return w.Close()
 }
+
+// deleteLocalData deletes the specified local directory and all its contents.
+func deleteLocalData(path string) error {
+	log.Printf("Attempting to delete local data directory: %s", path)
+	err := os.RemoveAll(path)
+	if err != nil {
+		return fmt.Errorf("failed to delete directory %s: %w", path, err)
+	}
+	log.Printf("Successfully deleted local data directory: %s", path)
+	return nil
+}

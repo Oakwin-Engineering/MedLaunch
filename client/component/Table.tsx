@@ -123,7 +123,11 @@ export default function FinancialKpiTable({
                                 : "",
                         }}
                       >
-                        {row.isCurrency && val ? formatCurrency(val) : val}
+                        {row.isCurrency && val
+                          ? formatCurrency(val)
+                          : typeof val === "number"
+                            ? Math.round(val)
+                            : val}
                       </TableCell>
                     ))}
                     {/* Totals column (grey) */}
@@ -136,7 +140,9 @@ export default function FinancialKpiTable({
                     >
                       {row.isCurrency && row.total
                         ? formatCurrency(row.total)
-                        : row.total}
+                        : typeof row.total === "number"
+                          ? Math.round(row.total)
+                          : row.total}
                     </TableCell>
                     {/* Coding % column (colored) */}
                     <TableCell
@@ -167,7 +173,8 @@ export default function FinancialKpiTable({
                   return null;
                 }
 
-                const isCollapsibleHeader = isCollapsible && isHeader && hasChildren;
+                const isCollapsibleHeader =
+                  isCollapsible && isHeader && hasChildren;
 
                 return (
                   <TableRow
@@ -221,7 +228,11 @@ export default function FinancialKpiTable({
                               : rowBg,
                         }}
                       >
-                        {row.isCurrency && val ? formatCurrency(val) : val}
+                        {row.isCurrency && val
+                          ? formatCurrency(val)
+                          : typeof val === "number"
+                            ? Math.round(val)
+                            : val}
                       </TableCell>
                     ))}
                     {/* Totals column (grey) */}
@@ -234,7 +245,9 @@ export default function FinancialKpiTable({
                     >
                       {row.isCurrency && row.total
                         ? formatCurrency(row.total)
-                        : row.total}
+                        : typeof row.total === "number"
+                          ? Math.round(row.total)
+                          : row.total}
                     </TableCell>
                     {/* Coding % column (colored) */}
                     <TableCell

@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -264,4 +266,215 @@ func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]fl
 	}
 
 	return monthlyData, uniqueProviders, nil
+}
+
+// processFinancialDataVitalCare reads a CSV file and processes financial data, returning a map of data aggregated by month and provider.
+func processFinancialDataVitalCare(filePath string, amountIdx int) (map[string]map[string]int64, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening financial analysis file: %v", err)
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	r.FieldsPerRecord = -1 // Disable field count check
+
+	// Skip header
+	if _, err := r.Read(); err != nil {
+		return nil, fmt.Errorf("error reading CSV header: %v", err)
+	}
+
+	data := make(map[string]map[string]int64)
+
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading CSV record: %v", err)
+		}
+
+		providerName := strings.TrimSpace(record[0])
+		dateStr := record[1]
+		amountStr := record[amountIdx]
+
+		// Extract month from "Month_YYYY" format
+		parts := strings.Split(dateStr, "_")
+		if len(parts) != 2 {
+			continue // Skip records with invalid month format
+		}
+		month := strings.ToLower(parts[0])
+
+		floatAmount, err := strconv.ParseFloat(amountStr, 64)
+		if err != nil {
+			log.Printf("Could not parse amount: %s", amountStr)
+			continue
+		}
+		amount := int64(floatAmount)
+
+		if _, ok := data[month]; !ok {
+			data[month] = make(map[string]int64)
+		}
+
+		data[month][providerName] += amount
+	}
+
+	return data, nil
+}
+
+func processFinancialAnalysis(filePath string, amountIdx int) (map[string]map[string]map[string]float64, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening financial analysis file: %v", err)
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	// Skip header
+	if _, err := r.Read(); err != nil {
+		return nil, fmt.Errorf("error reading CSV header: %v", err)
+	}
+
+	// month -> cptCode -> provider -> amount
+	data := make(map[string]map[string]map[string]float64)
+
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue // Skip malformed lines
+		}
+
+		providerName := strings.TrimSpace(record[0])
+		monthStr := strings.TrimSpace(record[1])
+		cptCode := strings.TrimSpace(record[2])
+		amountStr := record[amountIdx]
+
+		// Extract month from "Month_YYYY" format
+		parts := strings.Split(monthStr, "_")
+		if len(parts) != 2 {
+			continue // Skip records with invalid month format
+		}
+		month := strings.ToLower(parts[0])
+
+		amount, err := strconv.ParseFloat(strings.TrimSpace(amountStr), 64)
+		if err != nil {
+			continue // Skip invalid amounts
+		}
+
+		if _, ok := data[month]; !ok {
+			data[month] = make(map[string]map[string]float64)
+		}
+		if _, ok := data[month][cptCode]; !ok {
+			data[month][cptCode] = make(map[string]float64)
+		}
+
+		data[month][cptCode][providerName] += amount
+	}
+
+	return data, nil
+}
+
+// processRVUsVitalCare reads the RVU data from the specified CSV file and aggregates it by month and provider.
+func processRVUsVitalCare(filePath string) (map[string]map[string]int64, error) {
+	return processFinancialDataVitalCare(filePath, 7) // RVUs are in column index 8
+}
+
+// processTotalVisitsVitalCare reads the Total Visits data from the specified CSV file and aggregates it by month and provider.
+func processTotalVisitsVitalCare(filePath string) (map[string]map[string]int64, error) {
+	return processFinancialDataVitalCare(filePath, 6) // Total Visits are in column index 7
+}
+
+func processChargesVitalCare(filePath string) (map[string]map[string]map[string]float64, error) {
+	return processFinancialAnalysis(filePath, 4) // Billed Charge at index 5
+}
+
+func processPaymentsVitalCare(filePath string) (map[string]map[string]map[string]float64, error) {
+	return processFinancialAnalysis(filePath, 7) // Payment at index 8
+}
+
+func processContractualAdjustmentsVitalCare(filePath string) (map[string]map[string]map[string]float64, error) {
+	return processFinancialAnalysis(filePath, 11) // Contractual Adjustment at index 12
+}
+
+func getUniqueCPTCodes(filePath string) ([]string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening financial analysis file: %v", err)
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	// Skip header
+	if _, err := r.Read(); err != nil {
+		return nil, fmt.Errorf("error reading CSV header: %v", err)
+	}
+
+	cptCodeSet := make(map[string]struct{})
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue // Skip malformed lines
+		}
+
+		cptCode := record[2]
+		cptCodeSet[cptCode] = struct{}{}
+	}
+
+	uniqueCPTCodes := make([]string, 0, len(cptCodeSet))
+	for code := range cptCodeSet {
+		uniqueCPTCodes = append(uniqueCPTCodes, code)
+	}
+
+	return uniqueCPTCodes, nil
+}
+
+func processProviderLocationRelationshipVitalCare(filePath string) (map[string][]string, []string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		// Handle error, e.g., log or return err
+		return nil, nil, errors.New("failed opening provider location relationship file")
+	}
+	defer f.Close() // Ensure the file is closed when the function exits
+
+	r := csv.NewReader(f)
+
+	// Skip header row
+	_, err = r.Read()
+	if err != nil {
+		return nil, nil, fmt.Errorf("error reading CSV header: %v", err)
+	}
+
+	locationProviderRelationships := make(map[string][]string)
+	providerSet := make(map[string]struct{}) // Use a map to store unique provider names
+
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break // End of file
+		}
+		if err != nil {
+			return nil, nil, errors.New("failed reading provider location relationship file")
+		}
+
+		providerName := strings.TrimSpace(record[0])
+		locationName := strings.TrimSpace(record[1])
+
+		locationProviderRelationships[locationName] = append(locationProviderRelationships[locationName], providerName)
+		providerSet[providerName] = struct{}{}
+	}
+
+	// Convert the set of providers to a slice
+	uniqueProviders := make([]string, 0, len(providerSet))
+	for provider := range providerSet {
+		uniqueProviders = append(uniqueProviders, provider)
+	}
+
+	return locationProviderRelationships, uniqueProviders, nil
 }

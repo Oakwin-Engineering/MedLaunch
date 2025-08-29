@@ -11,7 +11,7 @@ type CustomerMapping map[string]string
 var months = []string{"january", "february", "march", "april", "may", "june",
 	"july", "august", "september", "october", "november", "december"}
 
-var customers = []string{"uhealth", "demo"}
+var customers = []string{"uhealth", "demo", "vitalcare"}
 
 // Helper function to convert strings to URL-friendly IDs
 func slugify(s string) string {

@@ -149,6 +149,34 @@ export default function Home() {
               )}
             </Button>
           </Box>
+          <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
+            <Link
+              href="/vitalcare"
+              style={{
+                textDecoration: "none",
+                backgroundColor: "#673ab7",
+                color: "white",
+                padding: "8px 16px",
+                borderRadius: "4px",
+                transition: "background-color 0.3s",
+              }}
+            >
+              VitalCare Data
+            </Link>
+            <Button
+              variant="contained"
+              color="secondary"
+              disabled={loading["vitalcare"]}
+              onClick={() => handleEtlTrigger("vitalcare")}
+              sx={{ minWidth: "130px" }}
+            >
+              {loading["vitalcare"] ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Trigger VitalCare ETL"
+              )}
+            </Button>
+          </Box>
         </Box>
       </Paper>
       {notification && (

@@ -20,7 +20,6 @@ ENV PORT=8080
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/build ./build
 
-# Expose the port
 EXPOSE 8080
 
 CMD ["node", "./build/index.js"]

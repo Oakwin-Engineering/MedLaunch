@@ -1,8 +1,10 @@
+import { env } from "$env/dynamic/public";
+
 type Slug = {
   customerID: string;
 };
 
-const apiUrl = import.meta.env.VITE_PUBLIC_API_URL;
+const apiUrl = env.PUBLIC_API_URL;
 
 export const load = async ({ params }: { params: Slug }) => {
   const { customerID } = params;

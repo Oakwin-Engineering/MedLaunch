@@ -10,25 +10,38 @@ import (
 
 // Node represents a facility or provider in the hierarchy
 type Node struct {
-	ID       string       `json:"id"`
-	Label    string       `json:"label"`
-	IconType string       `json:"iconType"`
-	Data     []MetricData `json:"data"`
-	Children []*Node      `json:"children,omitempty"`
+	ID       string   `json:"id"`
+	Label    string   `json:"label"`
+	IconType string   `json:"iconType"`
+	Data     NodeData `json:"data"`
+	Children []*Node  `json:"children,omitempty"`
 }
 
-// MetricData represents metric information for a node
-type MetricData struct {
-	Section         string    `json:"section"`
-	Type            string    `json:"type"`
-	Label           string    `json:"label,omitempty"`
-	Code            string    `json:"code,omitempty"`
-	Values          []float64 `json:"values"`
-	Total           float64   `json:"total"`
-	Coding          string    `json:"coding"`
-	ColorGroup      string    `json:"colorGroup"`
-	IsCurrency      bool      `json:"isCurrency,omitempty"`
-	IsSectionHeader bool      `json:"isSectionHeader,omitempty"`
+// NodeData holds the structured metrics for a node.
+type NodeData struct {
+	CptCodes        []CptCodeMetric `json:"cptCodes"`
+	Total           Metric          `json:"total"`
+	TotalVisits     Metric          `json:"totalVisits"`
+	Charges         Metric          `json:"charges"`
+	Payments        Metric          `json:"payments"`
+	Payroll         Metric          `json:"payroll"`
+	OperatingProfit Metric          `json:"operatingProfit"`
+}
+
+// CptCodeMetric represents a CPT code's metrics.
+type CptCodeMetric struct {
+	Code   string    `json:"code"`
+	Values []float64 `json:"values"`
+	Total  float64   `json:"total"`
+	Coding string    `json:"coding"`
+}
+
+// Metric represents a single metric with a label, values, total, and coding.
+type Metric struct {
+	Label  string    `json:"label"`
+	Values []float64 `json:"values"`
+	Total  float64   `json:"total"`
+	Coding string    `json:"coding"`
 }
 
 func uHealthTransform() ([]byte, error) {
@@ -162,7 +175,7 @@ func uHealthTransform() ([]byte, error) {
 			ID:       slugify(facility),
 			Label:    facility,
 			IconType: "clinic",
-			Data:     nil,
+			Data:     NodeData{},
 			Children: []*Node{},
 		}
 
@@ -280,10 +293,7 @@ func uHealthTransform() ([]byte, error) {
 			totalVisitsByMonth := make([]float64, 12)
 			totalVisitsSum := 0.0
 
-			// Initialize baseData with CPT codes first
-			baseData := []MetricData{}
-
-			// Calculate total visits for future % calcuation
+			// Calculate total visits for future % calculation
 			for _, values := range codesValues {
 				total := 0.0
 				for _, v := range values {
@@ -292,100 +302,68 @@ func uHealthTransform() ([]byte, error) {
 				totalVisitsSum += total
 			}
 
-			// Add code metrics and calculate totals
+			// Create CPT code metrics
+			cptCodeMetrics := []CptCodeMetric{}
 			for code, values := range codesValues {
 				total := 0.0
 				for i, v := range values {
 					total += v
 					totalVisitsByMonth[i] += v
 				}
-
-				baseData = append(baseData, MetricData{
-					Section:    "CPT Codes",
-					Type:       "data",
-					Code:       code,
-					Values:     values,
-					Total:      total,
-					Coding:     fmt.Sprintf("%d%%", int((total/totalVisitsSum)*100)),
-					ColorGroup: "yellow",
+				cptCodeMetrics = append(cptCodeMetrics, CptCodeMetric{
+					Code:   code,
+					Values: values,
+					Total:  total,
+					Coding: fmt.Sprintf("%d%%", int((total/totalVisitsSum)*100)),
 				})
 			}
 
-			// Add total visits metric
-			baseData = append(baseData, MetricData{
-				Section:    "CPT Codes",
-				Type:       "total",
-				Label:      "Total",
-				Values:     totalVisitsByMonth,
-				Total:      totalVisitsSum,
-				Coding:     "-",
-				ColorGroup: "yellow",
-			})
-
-			// Add other metrics
-			baseData = append(baseData, MetricData{
-				Section:    "Totals",
-				Type:       "data",
-				Label:      "Total Visits",
-				Values:     visitsValues,
-				Total:      visitsTotal,
-				Coding:     "-",
-				ColorGroup: "orange",
-			})
-
-			baseData = append(baseData, MetricData{
-				Section:         "Charges",
-				Type:            "data",
-				Label:           "Charges",
-				Values:          chargesValues,
-				Total:           chargesTotal,
-				Coding:          "-",
-				ColorGroup:      "lightPink",
-				IsSectionHeader: true,
-				IsCurrency:      true,
-			})
-
-			baseData = append(baseData, MetricData{
-				Section:         "Payments",
-				Type:            "data",
-				Label:           "Payments",
-				Values:          collectionsValues,
-				Total:           collectionsTotal,
-				Coding:          "-",
-				ColorGroup:      "blue",
-				IsSectionHeader: true,
-				IsCurrency:      true,
-			})
-
-			baseData = append(baseData, MetricData{
-				Section:         "Payroll",
-				Type:            "data",
-				Label:           "Payroll",
-				Values:          payrollValues,
-				Total:           payrollTotal,
-				Coding:          "-",
-				ColorGroup:      "orange",
-				IsSectionHeader: true,
-				IsCurrency:      true,
-			})
-
-			baseData = append(baseData, MetricData{
-				Section:         "Operating Profit Margin",
-				Type:            "data",
-				Label:           "Operating Profit Margin",
-				Values:          OPMValues,
-				Total:           OPMTotal,
-				Coding:          "-",
-				ColorGroup:      "-",
-				IsSectionHeader: true,
-				IsCurrency:      true,
-			})
+			// Build the structured data for the provider node
+			providerData := NodeData{
+				CptCodes: cptCodeMetrics,
+				Total: Metric{
+					Label:  "Total",
+					Values: totalVisitsByMonth,
+					Total:  totalVisitsSum,
+					Coding: "-",
+				},
+				TotalVisits: Metric{
+					Label:  "Total Visits",
+					Values: visitsValues,
+					Total:  visitsTotal,
+					Coding: "-",
+				},
+				Charges: Metric{
+					Label:  "Charges",
+					Values: chargesValues,
+					Total:  chargesTotal,
+					Coding: "-",
+				},
+				Payments: Metric{
+					Label:  "Payments",
+					Values: collectionsValues,
+					Total:  collectionsTotal,
+					Coding: "-",
+				},
+				Payroll: Metric{
+					Label:  "Payroll",
+					Values: payrollValues,
+					Total:  payrollTotal,
+					Coding: "-",
+				},
+				OperatingProfit: Metric{
+					Label:  "Operating Profit Margin",
+					Values: OPMValues,
+					Total:  OPMTotal,
+					Coding: "-",
+				},
+			}
 
 			facilityNode.Children = append(facilityNode.Children, &Node{
 				ID:       providerID,
 				Label:    provider,
 				IconType: "person",
-				Data:     baseData,
+				Data:     providerData,
 			})
 		}
 
@@ -449,9 +427,6 @@ func uHealthTransform() ([]byte, error) {
 			facilityOPMTotal += facilityOPMValues[i]
 		}
 
-		// Build facility metrics data
-		facilityData := []MetricData{}
-
 		// Add CPT code metrics first
 		totalVisitsByMonth := make([]float64, 12)
 		totalVisitsSum := 0.0
@@ -464,96 +439,61 @@ func uHealthTransform() ([]byte, error) {
 			totalVisitsSum += total
 		}
 
+		facilityCptCodeMetrics := []CptCodeMetric{}
 		for code, values := range facilityCodeValues {
 			total := 0.0
 			for i, v := range values {
 				total += v
 				totalVisitsByMonth[i] += v
 			}
-			totalVisitsSum += total
 
-			facilityData = append(facilityData, MetricData{
-				Section:    "CPT Codes",
-				Type:       "data",
-				Code:       code,
-				Values:     values,
-				Total:      total,
-				Coding:     fmt.Sprintf("%d%%", int((total/totalVisitsSum)*100)),
-				ColorGroup: "yellow",
+			facilityCptCodeMetrics = append(facilityCptCodeMetrics, CptCodeMetric{
+				Code:   code,
+				Values: values,
+				Total:  total,
+				Coding: fmt.Sprintf("%d%%", int((total/totalVisitsSum)*100)),
 			})
 		}
 
-		// Add total visits metric
-		facilityData = append(facilityData, MetricData{
-			Section:    "CPT Codes",
-			Type:       "total",
-			Label:      "Total",
-			Values:     totalVisitsByMonth,
-			Total:      totalVisitsSum,
-			Coding:     "-",
-			ColorGroup: "yellow",
-		})
-
-		// Add other metrics
-		facilityData = append(facilityData, MetricData{
-			Section:    "Totals",
-			Type:       "data",
-			Label:      "Total Visits",
-			Values:     facilityVisitsValues,
-			Total:      facilityVisitsTotal,
-			Coding:     "-",
-			ColorGroup: "orange",
-		})
-
-		facilityData = append(facilityData, MetricData{
-			Section:         "Charges",
-			Type:            "data",
-			Label:           "Charges",
-			Values:          facilityChargesValues,
-			Total:           facilityChargesTotal,
-			Coding:          "-",
-			ColorGroup:      "lightPink",
-			IsSectionHeader: true,
-			IsCurrency:      true,
-		})
-
-		facilityData = append(facilityData, MetricData{
-			Section:         "Payments",
-			Type:            "data",
-			Label:           "Payments",
-			Values:          facilityCollectionsValues,
-			Total:           facilityCollectionsTotal,
-			Coding:          "-",
-			ColorGroup:      "blue",
-			IsSectionHeader: true,
-			IsCurrency:      true,
-		})
-
-		facilityData = append(facilityData, MetricData{
-			Section:         "Payroll",
-			Type:            "data",
-			Label:           "Payroll",
-			Values:          facilityPayrollValues,
-			Total:           facilityPayrollTotal,
-			Coding:          "-",
-			ColorGroup:      "orange",
-			IsSectionHeader: true,
-			IsCurrency:      true,
-		})
-
-		facilityData = append(facilityData, MetricData{
-			Section:         "Operating Profit Margin",
-			Type:            "data",
-			Label:           "Operating Profit Margin",
-			Values:          facilityOPMValues,
-			Total:           facilityOPMTotal,
-			Coding:          "-",
-			ColorGroup:      "-",
-			IsSectionHeader: true,
-			IsCurrency:      true,
-		})
-
-		facilityNode.Data = facilityData
+		facilityNode.Data = NodeData{
+			CptCodes: facilityCptCodeMetrics,
+			Total: Metric{
+				Label:  "Total",
+				Values: totalVisitsByMonth,
+				Total:  totalVisitsSum,
+				Coding: "-",
+			},
+			TotalVisits: Metric{
+				Label:  "Total Visits",
+				Values: facilityVisitsValues,
+				Total:  facilityVisitsTotal,
+				Coding: "-",
+			},
+			Charges: Metric{
+				Label:  "Charges",
+				Values: facilityChargesValues,
+				Total:  facilityChargesTotal,
+				Coding: "-",
+			},
+			Payments: Metric{
+				Label:  "Payments",
+				Values: facilityCollectionsValues,
+				Total:  facilityCollectionsTotal,
+				Coding: "-",
+			},
+			Payroll: Metric{
+				Label:  "Payroll",
+				Values: facilityPayrollValues,
+				Total:  facilityPayrollTotal,
+				Coding: "-",
+			},
+			OperatingProfit: Metric{
+				Label:  "Operating Profit Margin",
+				Values: facilityOPMValues,
+				Total:  facilityOPMTotal,
+				Coding: "-",
+			},
+		}
 
 		items = append(items, facilityNode)
 	}
@@ -642,12 +582,8 @@ func uHealthTransform() ([]byte, error) {
 		allProvidersOPMTotal += allProvidersOPMValues[i]
 	}
 
-	// Build "All Providers" metrics data
-	allProvidersData := []MetricData{}
-	allProvidersTotalVisitsByMonth := make([]float64, 12)
-	var allProvidersTotalVisitsSum float64
-
 	// Calculate total visits for CPT codes for percentage calculation
+	var allProvidersTotalVisitsSum float64
 	for _, values := range allProvidersCodeValues {
 		total := 0.0
 		for _, v := range values {
@@ -657,6 +593,8 @@ func uHealthTransform() ([]byte, error) {
 	}
 
 	// Add CPT code metrics
+	allProvidersCptCodeMetrics := []CptCodeMetric{}
+	allProvidersTotalVisitsByMonth := make([]float64, 12)
 	for code, values := range allProvidersCodeValues {
 		total := 0.0
 		for i, v := range values {
@@ -669,88 +607,53 @@ func uHealthTransform() ([]byte, error) {
 			codingPercentage = int((total / allProvidersTotalVisitsSum) * 100)
 		}
 
-		allProvidersData = append(allProvidersData, MetricData{
-			Section:    "CPT Codes",
-			Type:       "data",
-			Code:       code,
-			Values:     values,
-			Total:      total,
-			Coding:     fmt.Sprintf("%d%%", codingPercentage),
-			ColorGroup: "yellow",
+		allProvidersCptCodeMetrics = append(allProvidersCptCodeMetrics, CptCodeMetric{
+			Code:   code,
+			Values: values,
+			Total:  total,
+			Coding: fmt.Sprintf("%d%%", codingPercentage),
 		})
 	}
 
-	// Add total visits metric for CPT codes
-	allProvidersData = append(allProvidersData, MetricData{
-		Section:    "CPT Codes",
-		Type:       "total",
-		Label:      "Total",
-		Values:     allProvidersTotalVisitsByMonth,
-		Total:      allProvidersTotalVisitsSum,
-		Coding:     "-",
-		ColorGroup: "yellow",
-	})
-
-	// Add other metrics
-	allProvidersData = append(allProvidersData, MetricData{
-		Section:    "Totals",
-		Type:       "data",
-		Label:      "Total Visits",
-		Values:     allProvidersVisitsValues,
-		Total:      allProvidersVisitsTotal,
-		Coding:     "-",
-		ColorGroup: "orange",
-	})
-
-	allProvidersData = append(allProvidersData, MetricData{
-		Section:         "Charges",
-		Type:            "data",
-		Label:           "Charges",
-		Values:          allProvidersChargesValues,
-		Total:           allProvidersChargesTotal,
-		Coding:          "-",
-		ColorGroup:      "lightPink",
-		IsSectionHeader: true,
-		IsCurrency:      true,
-	})
-
-	allProvidersData = append(allProvidersData, MetricData{
-		Section:         "Payments",
-		Type:            "data",
-		Label:           "Payments",
-		Values:          allProvidersCollectionsValues,
-		Total:           allProvidersCollectionsTotal,
-		Coding:          "-",
-		ColorGroup:      "blue",
-		IsSectionHeader: true,
-		IsCurrency:      true,
-	})
-
-	allProvidersData = append(allProvidersData, MetricData{
-		Section:         "Payroll",
-		Type:            "data",
-		Label:           "Payroll",
-		Values:          allProvidersPayrollValues,
-		Total:           allProvidersPayrollTotal,
-		Coding:          "-",
-		ColorGroup:      "orange",
-		IsSectionHeader: true,
-		IsCurrency:      true,
-	})
-
-	allProvidersData = append(allProvidersData, MetricData{
-		Section:         "Operating Profit Margin",
-		Type:            "data",
-		Label:           "Operating Profit Margin",
-		Values:          allProvidersOPMValues,
-		Total:           allProvidersOPMTotal,
-		Coding:          "-",
-		ColorGroup:      "-",
-		IsSectionHeader: true,
-		IsCurrency:      true,
-	})
-
-	allProvidersNode.Data = allProvidersData
+	allProvidersNode.Data = NodeData{
+		CptCodes: allProvidersCptCodeMetrics,
+		Total: Metric{
+			Label:  "Total",
+			Values: allProvidersTotalVisitsByMonth,
+			Total:  allProvidersTotalVisitsSum,
+			Coding: "-",
+		},
+		TotalVisits: Metric{
+			Label:  "Total Visits",
+			Values: allProvidersVisitsValues,
+			Total:  allProvidersVisitsTotal,
+			Coding: "-",
+		},
+		Charges: Metric{
+			Label:  "Charges",
+			Values: allProvidersChargesValues,
+			Total:  allProvidersChargesTotal,
+			Coding: "-",
+		},
+		Payments: Metric{
+			Label:  "Payments",
+			Values: allProvidersCollectionsValues,
+			Total:  allProvidersCollectionsTotal,
+			Coding: "-",
+		},
+		Payroll: Metric{
+			Label:  "Payroll",
+			Values: allProvidersPayrollValues,
+			Total:  allProvidersPayrollTotal,
+			Coding: "-",
+		},
+		OperatingProfit: Metric{
+			Label:  "Operating Profit Margin",
+			Values: allProvidersOPMValues,
+			Total:  allProvidersOPMTotal,
+			Coding: "-",
+		},
+	}
 	items = append(items, allProvidersNode)
 
 	// Sort facilities alphabetically by label, keeping "All Providers" at the beginning
@@ -772,6 +675,7 @@ func uHealthTransform() ([]byte, error) {
 
 	return jsonData, nil
 }
+
 func vitalCareTransform() ([]byte, error) {
 	// File paths
 	financialAnalysisPath := "data/financial_analysis.csv"
@@ -949,11 +853,11 @@ func vitalCareTransform() ([]byte, error) {
 				locationTotalVisitsValues[i] += providerTotalVisitsValues[i]
 			}
 
-			providerNode.Data = buildMetricData(providerChargesValues, providerPaymentsValues, providerAdjustmentsValues, providerRvusValues, providerTotalVisitsValues, providerCptData)
+			providerNode.Data = buildNodeDataVitalCare(providerChargesValues, providerPaymentsValues, providerAdjustmentsValues, providerRvusValues, providerTotalVisitsValues, providerCptData)
 			locationNode.Children = append(locationNode.Children, providerNode)
 		}
 
-		locationNode.Data = buildMetricData(locationChargesValues, locationPaymentsValues, locationAdjustmentsValues, locationRvusValues, locationTotalVisitsValues, locationCptData)
+		locationNode.Data = buildNodeDataVitalCare(locationChargesValues, locationPaymentsValues, locationAdjustmentsValues, locationRvusValues, locationTotalVisitsValues, locationCptData)
 		items = append(items, locationNode)
 	}
 
@@ -1019,7 +923,7 @@ func vitalCareTransform() ([]byte, error) {
 		}
 	}
 
-	allProvidersNode.Data = buildMetricData(allProvidersChargesValues, allProvidersPaymentsValues, allProvidersAdjustmentsValues, allProvidersRvusValues, allProvidersTotalVisitsValues, allProvidersCptData)
+	allProvidersNode.Data = buildNodeDataVitalCare(allProvidersChargesValues, allProvidersPaymentsValues, allProvidersAdjustmentsValues, allProvidersRvusValues, allProvidersTotalVisitsValues, allProvidersCptData)
 	items = append(items, allProvidersNode)
 
 	// Sort items alphabetically, keeping "All Providers" at the top
@@ -1047,7 +951,7 @@ func transformData(clientName string) ([]byte, error) {
 	}
 }
 
-func buildMetricData(charges, payments, adjustments, rvus, totalVisits []float64, cptData map[string]map[string][]float64) []MetricData {
+func buildNodeDataVitalCare(charges, payments, adjustments, rvus, totalVisits []float64, cptData map[string]map[string][]float64) NodeData {
 	chargesTotal := 0.0
 	for _, v := range charges {
 		chargesTotal += v
@@ -1056,20 +960,10 @@ func buildMetricData(charges, payments, adjustments, rvus, totalVisits []float64
 	for _, v := range payments {
 		paymentsTotal += v
 	}
-	adjustmentsTotal := 0.0
-	for _, v := range adjustments {
-		adjustmentsTotal += v
-	}
-	rvusTotal := 0.0
-	for _, v := range rvus {
-		rvusTotal += v
-	}
 	totalVisitsTotal := 0.0
 	for _, v := range totalVisits {
 		totalVisitsTotal += v
 	}
-
-	metrics := []MetricData{}
 
 	// Add CPT code metrics first
 	cptChargesTotalSum := 0.0
@@ -1079,10 +973,14 @@ func buildMetricData(charges, payments, adjustments, rvus, totalVisits []float64
 		}
 	}
 
+	cptCodeMetrics := []CptCodeMetric{}
+	totalVisitsByMonth := make([]float64, 12)
+
 	for code, data := range cptData {
 		cptChargesTotal := 0.0
-		for _, v := range data["charges"] {
+		for i, v := range data["charges"] {
 			cptChargesTotal += v
+			totalVisitsByMonth[i] += v // Assuming CPT charges contribute to total visits
 		}
 
 		codingPercentage := 0
@@ -1090,66 +988,42 @@ func buildMetricData(charges, payments, adjustments, rvus, totalVisits []float64
 			codingPercentage = int((cptChargesTotal / cptChargesTotalSum) * 100)
 		}
 
-		metrics = append(metrics, MetricData{
-			Section:    "CPT Codes",
-			Type:       "data",
-			Code:       code,
-			Values:     data["charges"],
-			Total:      cptChargesTotal,
-			Coding:     fmt.Sprintf("%d%%", codingPercentage),
-			ColorGroup: "yellow",
+		cptCodeMetrics = append(cptCodeMetrics, CptCodeMetric{
+			Code:   code,
+			Values: data["charges"],
+			Total:  cptChargesTotal,
+			Coding: fmt.Sprintf("%d%%", codingPercentage),
 		})
 	}
 
-	metrics = append(metrics,
-		MetricData{
-			Section:         "Charges",
-			Type:            "data",
-			Label:           "Billed Charges",
-			Values:          charges,
-			ColorGroup:      "yellow",
-			Total:           chargesTotal,
-			IsCurrency:      true,
-			IsSectionHeader: true,
+	return NodeData{
+		CptCodes: cptCodeMetrics,
+		Total: Metric{
+			Label:  "Total",
+			Values: totalVisitsByMonth,
+			Total:  cptChargesTotalSum,
+			Coding: "-",
 		},
-		MetricData{
-			Section:         "Payments",
-			Type:            "data",
-			Label:           "Payments",
-			ColorGroup:      "green",
-			Values:          payments,
-			Total:           paymentsTotal,
-			IsCurrency:      true,
-			IsSectionHeader: true,
+		TotalVisits: Metric{
+			Label:  "Total Visits",
+			Values: totalVisits,
+			Total:  totalVisitsTotal,
+			Coding: "-",
 		},
-		MetricData{
-			Section:         "Adjustments",
-			Type:            "data",
-			Label:           "Contractual Adjustments",
-			ColorGroup:      "pink",
-			Values:          adjustments,
-			Total:           adjustmentsTotal,
-			IsCurrency:      true,
-			IsSectionHeader: true,
+		Charges: Metric{
+			Label:  "Charges",
+			Values: charges,
+			Total:  chargesTotal,
+			Coding: "-",
 		},
-		MetricData{
-			Section:         "RVUs",
-			Type:            "data",
-			Label:           "RVUs",
-			ColorGroup:      "purple",
-			Values:          rvus,
-			Total:           rvusTotal,
-			IsSectionHeader: true,
+		Payments: Metric{
+			Label:  "Payments",
+			Values: payments,
+			Total:  paymentsTotal,
+			Coding: "-",
 		},
-		MetricData{
-			Section:         "Total Visits",
-			Type:            "data",
-			Label:           "Total Visits",
-			ColorGroup:      "blue",
-			Values:          totalVisits,
-			Total:           totalVisitsTotal,
-			IsSectionHeader: true,
-		},
-	)
-	return metrics
+		// Payroll and OperatingProfit are not available in VitalCare data
+		Payroll:         Metric{Label: "Payroll"},
+		OperatingProfit: Metric{Label: "Operating Profit Margin"},
+	}
 }

@@ -24,6 +24,7 @@ type NodeData struct {
 	TotalVisits     Metric          `json:"totalVisits"`
 	Charges         Metric          `json:"charges"`
 	Payments        Metric          `json:"payments"`
+	RVUs            Metric          `json:"rvus"`
 	Payroll         Metric          `json:"payroll"`
 	OperatingProfit Metric          `json:"operatingProfit"`
 }
@@ -53,7 +54,7 @@ func uHealthTransform() ([]byte, error) {
 
 	// Process each month's data, build nav bar.
 	for _, month := range months {
-		allDataPath := fmt.Sprintf("data/athelas/%s/%s_all_data.csv", month, month)
+		allDataPath := fmt.Sprintf("data/%s_all_data.csv", month)
 
 		// Skip if file doesn't exist
 		if _, err := os.Stat(allDataPath); os.IsNotExist(err) {
@@ -101,7 +102,7 @@ func uHealthTransform() ([]byte, error) {
 	monthlyFacilityVisits := make(map[string]map[string]float64)
 	monthlyProviderVisits := make(map[string]map[string]float64)
 
-	providersPayrollPath := "data/adp/adp.csv"
+	providersPayrollPath := "data/adp.csv"
 
 	// Process payroll data and get provider names from ADP system
 	monthlyProviderPayrolls, uniqueADPProviderNames, err := processADPProviderPayrollMonthly(providersPayrollPath)
@@ -120,11 +121,11 @@ func uHealthTransform() ([]byte, error) {
 	// Process each month's data
 	for _, month := range months {
 		// Generate file paths for this month
-		chargesByClinicPath := fmt.Sprintf("data/athelas/%s/%s_charges_by_clinic.csv", month, month)
-		chargesByProviderPath := fmt.Sprintf("data/athelas/%s/%s_charges_by_provider_top.csv", month, month)
-		collectionsByFacilityPath := fmt.Sprintf("data/athelas/%s/%s_collections_by_facility.csv", month, month)
-		collectionsByProviderPath := fmt.Sprintf("data/athelas/%s/%s_collections_by_provider.csv", month, month)
-		cptCodesByProviderPath := fmt.Sprintf("data/athelas/%s/%s_charges_by_provider_bottom.csv", month, month)
+		chargesByClinicPath := fmt.Sprintf("data/%s_charges_by_clinic.csv", month)
+		chargesByProviderPath := fmt.Sprintf("data/%s_charges_by_provider_top.csv", month)
+		collectionsByFacilityPath := fmt.Sprintf("data/%s_collections_by_facility.csv", month)
+		collectionsByProviderPath := fmt.Sprintf("data/%s_collections_by_provider.csv", month)
+		cptCodesByProviderPath := fmt.Sprintf("data/%s_charges_by_provider_bottom.csv", month)
 
 		// Process charges by clinics
 		if facilityTotals, err := processChargesByClinic(chargesByClinicPath); err == nil {
@@ -345,6 +346,12 @@ func uHealthTransform() ([]byte, error) {
 					Total:  collectionsTotal,
 					Coding: "-",
 				},
+				RVUs: Metric{
+					Label:  "RVUs",
+					Values: make([]float64, 12),
+					Total:  0,
+					Coding: "-",
+				},
 				Payroll: Metric{
 					Label:  "Payroll",
 					Values: payrollValues,
@@ -479,6 +486,12 @@ func uHealthTransform() ([]byte, error) {
 				Label:  "Payments",
 				Values: facilityCollectionsValues,
 				Total:  facilityCollectionsTotal,
+				Coding: "-",
+			},
+			RVUs: Metric{
+				Label:  "RVUs",
+				Values: make([]float64, 12),
+				Total:  0,
 				Coding: "-",
 			},
 			Payroll: Metric{
@@ -639,6 +652,12 @@ func uHealthTransform() ([]byte, error) {
 			Label:  "Payments",
 			Values: allProvidersCollectionsValues,
 			Total:  allProvidersCollectionsTotal,
+			Coding: "-",
+		},
+		RVUs: Metric{
+			Label:  "RVUs",
+			Values: make([]float64, 12),
+			Total:  0,
 			Coding: "-",
 		},
 		Payroll: Metric{
@@ -853,11 +872,175 @@ func vitalCareTransform() ([]byte, error) {
 				locationTotalVisitsValues[i] += providerTotalVisitsValues[i]
 			}
 
-			providerNode.Data = buildNodeDataVitalCare(providerChargesValues, providerPaymentsValues, providerAdjustmentsValues, providerRvusValues, providerTotalVisitsValues, providerCptData)
+			// Build NodeData for provider
+			providerChargesTotal := 0.0
+			for _, v := range providerChargesValues {
+				providerChargesTotal += v
+			}
+			providerPaymentsTotal := 0.0
+			for _, v := range providerPaymentsValues {
+				providerPaymentsTotal += v
+			}
+			providerRvusTotal := 0.0
+			for _, v := range providerRvusValues {
+				providerRvusTotal += v
+			}
+			providerTotalVisitsTotal := 0.0
+			for _, v := range providerTotalVisitsValues {
+				providerTotalVisitsTotal += v
+			}
+
+			providerCptChargesTotalSum := 0.0
+			for _, data := range providerCptData {
+				for _, v := range data["charges"] {
+					providerCptChargesTotalSum += v
+				}
+			}
+
+			providerCptCodeMetrics := []CptCodeMetric{}
+			providerTotalVisitsByMonth := make([]float64, 12)
+
+			for code, data := range providerCptData {
+				cptChargesTotal := 0.0
+				for i, v := range data["charges"] {
+					cptChargesTotal += v
+					providerTotalVisitsByMonth[i] += v
+				}
+
+				codingPercentage := 0
+				if providerCptChargesTotalSum > 0 {
+					codingPercentage = int((cptChargesTotal / providerCptChargesTotalSum) * 100)
+				}
+
+				providerCptCodeMetrics = append(providerCptCodeMetrics, CptCodeMetric{
+					Code:   code,
+					Values: data["charges"],
+					Total:  cptChargesTotal,
+					Coding: fmt.Sprintf("%d%%", codingPercentage),
+				})
+			}
+
+			providerNode.Data = NodeData{
+				CptCodes: providerCptCodeMetrics,
+				Total: Metric{
+					Label:  "Total",
+					Values: providerTotalVisitsByMonth,
+					Total:  providerCptChargesTotalSum,
+					Coding: "-",
+				},
+				TotalVisits: Metric{
+					Label:  "Total Visits",
+					Values: providerTotalVisitsValues,
+					Total:  providerTotalVisitsTotal,
+					Coding: "-",
+				},
+				Charges: Metric{
+					Label:  "Charges",
+					Values: providerChargesValues,
+					Total:  providerChargesTotal,
+					Coding: "-",
+				},
+				Payments: Metric{
+					Label:  "Payments",
+					Values: providerPaymentsValues,
+					Total:  providerPaymentsTotal,
+					Coding: "-",
+				},
+				RVUs: Metric{
+					Label:  "RVUs",
+					Values: providerRvusValues,
+					Total:  providerRvusTotal,
+					Coding: "-",
+				},
+				Payroll:         Metric{Label: "Payroll"},
+				OperatingProfit: Metric{Label: "Operating Profit Margin"},
+			}
 			locationNode.Children = append(locationNode.Children, providerNode)
 		}
 
-		locationNode.Data = buildNodeDataVitalCare(locationChargesValues, locationPaymentsValues, locationAdjustmentsValues, locationRvusValues, locationTotalVisitsValues, locationCptData)
+		// Build NodeData for location
+		locationChargesTotal := 0.0
+		for _, v := range locationChargesValues {
+			locationChargesTotal += v
+		}
+		locationPaymentsTotal := 0.0
+		for _, v := range locationPaymentsValues {
+			locationPaymentsTotal += v
+		}
+		locationRvusTotal := 0.0
+		for _, v := range locationRvusValues {
+			locationRvusTotal += v
+		}
+		locationTotalVisitsTotal := 0.0
+		for _, v := range locationTotalVisitsValues {
+			locationTotalVisitsTotal += v
+		}
+
+		locationCptChargesTotalSum := 0.0
+		for _, data := range locationCptData {
+			for _, v := range data["charges"] {
+				locationCptChargesTotalSum += v
+			}
+		}
+
+		locationCptCodeMetrics := []CptCodeMetric{}
+		locationTotalVisitsByMonth := make([]float64, 12)
+
+		for code, data := range locationCptData {
+			cptChargesTotal := 0.0
+			for i, v := range data["charges"] {
+				cptChargesTotal += v
+				locationTotalVisitsByMonth[i] += v
+			}
+
+			codingPercentage := 0
+			if locationCptChargesTotalSum > 0 {
+				codingPercentage = int((cptChargesTotal / locationCptChargesTotalSum) * 100)
+			}
+
+			locationCptCodeMetrics = append(locationCptCodeMetrics, CptCodeMetric{
+				Code:   code,
+				Values: data["charges"],
+				Total:  cptChargesTotal,
+				Coding: fmt.Sprintf("%d%%", codingPercentage),
+			})
+		}
+
+		locationNode.Data = NodeData{
+			CptCodes: locationCptCodeMetrics,
+			Total: Metric{
+				Label:  "Total",
+				Values: locationTotalVisitsByMonth,
+				Total:  locationCptChargesTotalSum,
+				Coding: "-",
+			},
+			TotalVisits: Metric{
+				Label:  "Total Visits",
+				Values: locationTotalVisitsValues,
+				Total:  locationTotalVisitsTotal,
+				Coding: "-",
+			},
+			Charges: Metric{
+				Label:  "Charges",
+				Values: locationChargesValues,
+				Total:  locationChargesTotal,
+				Coding: "-",
+			},
+			Payments: Metric{
+				Label:  "Payments",
+				Values: locationPaymentsValues,
+				Total:  locationPaymentsTotal,
+				Coding: "-",
+			},
+			RVUs: Metric{
+				Label:  "RVUs",
+				Values: locationRvusValues,
+				Total:  locationRvusTotal,
+				Coding: "-",
+			},
+			Payroll:         Metric{Label: "Payroll"},
+			OperatingProfit: Metric{Label: "Operating Profit Margin"},
+		}
 		items = append(items, locationNode)
 	}
 
@@ -923,7 +1106,89 @@ func vitalCareTransform() ([]byte, error) {
 		}
 	}
 
-	allProvidersNode.Data = buildNodeDataVitalCare(allProvidersChargesValues, allProvidersPaymentsValues, allProvidersAdjustmentsValues, allProvidersRvusValues, allProvidersTotalVisitsValues, allProvidersCptData)
+	// Build NodeData for All Providers
+	allProvidersChargesTotal := 0.0
+	for _, v := range allProvidersChargesValues {
+		allProvidersChargesTotal += v
+	}
+	allProvidersPaymentsTotal := 0.0
+	for _, v := range allProvidersPaymentsValues {
+		allProvidersPaymentsTotal += v
+	}
+	allProvidersRvusTotal := 0.0
+	for _, v := range allProvidersRvusValues {
+		allProvidersRvusTotal += v
+	}
+	allProvidersTotalVisitsTotal := 0.0
+	for _, v := range allProvidersTotalVisitsValues {
+		allProvidersTotalVisitsTotal += v
+	}
+
+	allProvidersCptChargesTotalSum := 0.0
+	for _, data := range allProvidersCptData {
+		for _, v := range data["charges"] {
+			allProvidersCptChargesTotalSum += v
+		}
+	}
+
+	allProvidersCptCodeMetrics := []CptCodeMetric{}
+	allProvidersTotalVisitsByMonth := make([]float64, 12)
+
+	for code, data := range allProvidersCptData {
+		cptChargesTotal := 0.0
+		for i, v := range data["charges"] {
+			cptChargesTotal += v
+			allProvidersTotalVisitsByMonth[i] += v
+		}
+
+		codingPercentage := 0
+		if allProvidersCptChargesTotalSum > 0 {
+			codingPercentage = int((cptChargesTotal / allProvidersCptChargesTotalSum) * 100)
+		}
+
+		allProvidersCptCodeMetrics = append(allProvidersCptCodeMetrics, CptCodeMetric{
+			Code:   code,
+			Values: data["charges"],
+			Total:  cptChargesTotal,
+			Coding: fmt.Sprintf("%d%%", codingPercentage),
+		})
+	}
+
+	allProvidersNode.Data = NodeData{
+		CptCodes: allProvidersCptCodeMetrics,
+		Total: Metric{
+			Label:  "Total",
+			Values: allProvidersTotalVisitsByMonth,
+			Total:  allProvidersCptChargesTotalSum,
+			Coding: "-",
+		},
+		TotalVisits: Metric{
+			Label:  "Total Visits",
+			Values: allProvidersTotalVisitsValues,
+			Total:  allProvidersTotalVisitsTotal,
+			Coding: "-",
+		},
+		Charges: Metric{
+			Label:  "Charges",
+			Values: allProvidersChargesValues,
+			Total:  allProvidersChargesTotal,
+			Coding: "-",
+		},
+		Payments: Metric{
+			Label:  "Payments",
+			Values: allProvidersPaymentsValues,
+			Total:  allProvidersPaymentsTotal,
+			Coding: "-",
+		},
+		RVUs: Metric{
+			Label:  "RVUs",
+			Values: allProvidersRvusValues,
+			Total:  allProvidersRvusTotal,
+			Coding: "-",
+		},
+		Payroll:         Metric{Label: "Payroll"},
+		OperatingProfit: Metric{Label: "Operating Profit Margin"},
+	}
 	items = append(items, allProvidersNode)
 
 	// Sort items alphabetically, keeping "All Providers" at the top
@@ -948,82 +1213,5 @@ func transformData(clientName string) ([]byte, error) {
 		return vitalCareTransform()
 	default:
 		return nil, errors.New("no customer name sent in")
-	}
-}
-
-func buildNodeDataVitalCare(charges, payments, adjustments, rvus, totalVisits []float64, cptData map[string]map[string][]float64) NodeData {
-	chargesTotal := 0.0
-	for _, v := range charges {
-		chargesTotal += v
-	}
-	paymentsTotal := 0.0
-	for _, v := range payments {
-		paymentsTotal += v
-	}
-	totalVisitsTotal := 0.0
-	for _, v := range totalVisits {
-		totalVisitsTotal += v
-	}
-
-	// Add CPT code metrics first
-	cptChargesTotalSum := 0.0
-	for _, data := range cptData {
-		for _, v := range data["charges"] {
-			cptChargesTotalSum += v
-		}
-	}
-
-	cptCodeMetrics := []CptCodeMetric{}
-	totalVisitsByMonth := make([]float64, 12)
-
-	for code, data := range cptData {
-		cptChargesTotal := 0.0
-		for i, v := range data["charges"] {
-			cptChargesTotal += v
-			totalVisitsByMonth[i] += v // Assuming CPT charges contribute to total visits
-		}
-
-		codingPercentage := 0
-		if cptChargesTotalSum > 0 {
-			codingPercentage = int((cptChargesTotal / cptChargesTotalSum) * 100)
-		}
-
-		cptCodeMetrics = append(cptCodeMetrics, CptCodeMetric{
-			Code:   code,
-			Values: data["charges"],
-			Total:  cptChargesTotal,
-			Coding: fmt.Sprintf("%d%%", codingPercentage),
-		})
-	}
-
-	return NodeData{
-		CptCodes: cptCodeMetrics,
-		Total: Metric{
-			Label:  "Total",
-			Values: totalVisitsByMonth,
-			Total:  cptChargesTotalSum,
-			Coding: "-",
-		},
-		TotalVisits: Metric{
-			Label:  "Total Visits",
-			Values: totalVisits,
-			Total:  totalVisitsTotal,
-			Coding: "-",
-		},
-		Charges: Metric{
-			Label:  "Charges",
-			Values: charges,
-			Total:  chargesTotal,
-			Coding: "-",
-		},
-		Payments: Metric{
-			Label:  "Payments",
-			Values: payments,
-			Total:  paymentsTotal,
-			Coding: "-",
-		},
-		// Payroll and OperatingProfit are not available in VitalCare data
-		Payroll:         Metric{Label: "Payroll"},
-		OperatingProfit: Metric{Label: "Operating Profit Margin"},
 	}
 }

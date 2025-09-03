@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
@@ -18,39 +20,13 @@ func main() {
 	// Load environment variables
 	godotenv.Load()
 
-	// Initialize router
-	r := mux.NewRouter()
+	router := mux.NewRouter()
 
-	r.HandleFunc("/trigger-etl/{customer-id}", triggerETL)
-	r.HandleFunc("/trigger-etl-test/{customer-id}", triggerETLTest)
-	r.HandleFunc("/table-data/{customer-id}", tableDataHandler)
-
-	// Serve static files from /out directory
-	fs := http.FileServer(http.Dir("./out"))
-	// Handle customer paths
-	r.PathPrefix("/{customer-id}").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		customerID := vars["customer-id"]
-
-		// Check if it's a valid customer ID
-		if customerID == "uhealth" || customerID == "demo" {
-			// Serve the customer-specific HTML file
-			http.ServeFile(w, r, fmt.Sprintf("./out/%s.html", customerID))
-			return
-		}
-
-		// For all other paths, serve from the static directory
-		fs.ServeHTTP(w, r)
-	})
-
-	// Handle root path
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			http.ServeFile(w, r, "./out/index.html")
-			return
-		}
-		fs.ServeHTTP(w, r)
-	})
+	// Register handlers with the mux router
+	router.HandleFunc("/trigger-etl/{customer-id}", triggerETL)
+	router.HandleFunc("/trigger-etl-test/{customer-id}", triggerETLTest)
+	router.HandleFunc("/table-data/{customer-id}", tableDataHandler)
+	router.HandleFunc("/upload-bucket/{customer-id}", uploadBucketHandler)
 
 	// Enable CORS
 	c := cors.New(cors.Options{
@@ -58,8 +34,8 @@ func main() {
 		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
 	})
 
-	// Wrap router with CORS handler
-	handler := c.Handler(r)
+	// Wrap the router with the CORS handler
+	handler := c.Handler(router)
 
 	log.Println("Starting server on :8080 ...")
 
@@ -83,7 +59,8 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 1: Download data from GCS
-	if err := downloadBucket(bucketName+"-pretransformed", "data"); err != nil {
+	// Download from the root of the bucket into the local 'data' directory.
+	if err := downloadBucket(bucketName + "-pretransformed"); err != nil {
 		log.Printf("Error downloading data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error downloading data: %v", err)
@@ -105,7 +82,7 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	// Use transformed bucket for output
 	transformedBucketName := bucketName + "-transformed"
 	var objectName = "facility-provider-hierarchy.json"
-	if err := uploadBucket(transformedBucketName, objectName, jsonData); err != nil {
+	if err := uploadFileToBucket(transformedBucketName, objectName, jsonData); err != nil {
 		log.Printf("Error uploading transformed data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error uploading transformed data: %v", err)
@@ -151,7 +128,7 @@ func triggerETLTest(w http.ResponseWriter, r *http.Request) {
 	// Use transformed bucket for output
 	transformedBucketName := bucketName + "-transformed"
 	var objectName = "facility-provider-hierarchy.json"
-	if err := uploadBucket(transformedBucketName, objectName, jsonData); err != nil {
+	if err := uploadFileToBucket(transformedBucketName, objectName, jsonData); err != nil {
 		log.Printf("Error uploading transformed data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error uploading transformed data: %v", err)
@@ -163,12 +140,107 @@ func triggerETLTest(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "ETL process completed successfully")
 }
 
+func uploadBucketHandler(w http.ResponseWriter, r *http.Request) {
+	// Get customer ID from URL parameters
+	vars := mux.Vars(r)
+	customerID := vars["customer-id"]
+
+	bucketName, err := getBucketName(customerID)
+	if err != nil {
+		log.Printf("Error mapping customer ID: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Create a temporary directory to store uploaded files
+	tempDir, err := os.MkdirTemp("", "upload-"+customerID+"-*")
+	if err != nil {
+		log.Printf("Error creating temp dir: %v", err)
+		http.Error(w, "Error creating temp dir", http.StatusInternalServerError)
+		return
+	}
+	defer os.RemoveAll(tempDir) // Clean up the temp directory
+
+	// Parse the multipart form
+	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32MB max memory
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get a reference to the uploaded files
+	files := r.MultipartForm.File["files"]
+
+	for _, header := range files {
+		// The client sends the relative path in the filename field
+		objectName := header.Filename
+		if objectName == "" {
+			continue // Skip empty filenames
+		}
+
+		// Create the full local path
+		localPath := filepath.Join(tempDir, objectName)
+
+		// Open the uploaded file
+		file, err := header.Open()
+		if err != nil {
+			log.Printf("Error opening uploaded file %s: %v", objectName, err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		// Create the destination file on the server
+		dst, err := os.Create(localPath)
+		if err != nil {
+			log.Printf("Error creating destination file %s: %v", localPath, err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+
+		// Copy the uploaded file's content to the destination file
+		if _, err := io.Copy(dst, file); err != nil {
+			log.Printf("Error saving file %s: %v", objectName, err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	preTransformedBucketName := bucketName + "-pretransformed"
+
+	// Ensure the bucket exists
+	if err := createBucket(preTransformedBucketName); err != nil {
+		log.Printf("Error ensuring bucket %s exists: %v", preTransformedBucketName, err)
+		http.Error(w, "Failed to ensure cloud storage bucket exists", http.StatusInternalServerError)
+		return
+	}
+
+	// Clear the bucket before uploading new files
+	if err := clearBucket(preTransformedBucketName); err != nil {
+		log.Printf("Error clearing bucket %s: %v", preTransformedBucketName, err)
+		http.Error(w, "Failed to clear cloud storage bucket", http.StatusInternalServerError)
+		return
+	}
+
+	// Upload the entire directory from the temp location to GCS
+	if err := uploadDirectoryToBucket(preTransformedBucketName, tempDir); err != nil {
+		log.Printf("Error uploading directory %s to bucket %s: %v", tempDir, preTransformedBucketName, err)
+		http.Error(w, "Failed to upload directory to cloud storage", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Successfully uploaded directory for %s to %s", customerID, preTransformedBucketName)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Successfully uploaded files for %s", customerID)
+}
+
 func tableDataHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Get customer ID from URL parameters and map to bucket name
+	// Get customer ID from URL parameters
 	vars := mux.Vars(r)
 	customerId := vars["customer-id"]
+
 	bucketName, err := getBucketName(customerId)
 	if err != nil {
 		log.Printf("Error mapping customer ID: %v", err)

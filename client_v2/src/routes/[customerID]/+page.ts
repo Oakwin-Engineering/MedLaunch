@@ -7,17 +7,17 @@ const apiUrl = import.meta.env.VITE_PUBLIC_API_URL;
 export const load = async ({ params }: { params: Slug }) => {
   const { customerID } = params;
 
-  console.log(apiUrl);
-
   try {
     const res = await fetch(`${apiUrl}/table-data/${customerID}`);
     if (!res.ok) {
       throw new Error(`Failed to fetch: ${res.statusText}`);
     }
-    const data = await res.json();
+    const tableData = await res.json();
+    console.log(customerID);
 
     return {
-      ...data,
+      tableData,
+      customerID,
     };
   } catch (error) {
     console.error("Error loading data:", error);

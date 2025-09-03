@@ -11,7 +11,6 @@
     const target = event.target as HTMLInputElement;
     if (target.files) {
       files[customerID] = Array.from(target.files);
-      files = files; // Trigger reactivity
     }
   }
 
@@ -20,7 +19,6 @@
     if (!customerFiles) return;
 
     isLoading[customerID] = true;
-    isLoading = isLoading; // Trigger reactivity
 
     const formData = new FormData();
     for (const file of customerFiles) {
@@ -62,7 +60,6 @@
       alert("An error occurred while trying to start the ETL process.");
     } finally {
       isLoading[customerID] = false;
-      isLoading = isLoading; // Trigger reactivity
     }
   }
 </script>

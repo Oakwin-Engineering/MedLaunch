@@ -29,7 +29,7 @@
 
 <Sidebar backdrop={false} isOpen={true} class="h-full pt-16 overflow-y-auto">
   <Search placeholder="Search" size="md" bind:value={searchTerm} clearable />
-  <SidebarGroup>
+  <SidebarGroup class="mt-2">
     {#each filteredData as node}
       <SidebarNode {node} />
     {/each}

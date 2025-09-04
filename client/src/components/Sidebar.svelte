@@ -1,34 +1,23 @@
 <script lang="ts">
-  import { Sidebar, SidebarGroup, Search } from "flowbite-svelte";
+  import { Sidebar, SidebarGroup, Search, Toggle } from "flowbite-svelte";
   import SidebarNode from "./SidebarNode.svelte";
+  import { filterEntity } from "../utils/utils";
 
   let { tableData } = $props();
   let searchTerm = $state("");
+  let providersOnly = $state(false);
 
-  function filterData(nodes: any[], term: string): any[] {
-    if (!term) return nodes;
-
-    const lowerCaseTerm = term.toLowerCase();
-
-    return nodes
-      .map((node) => {
-        const children = node.children ? filterData(node.children, term) : [];
-        if (
-          node.label.toLowerCase().includes(lowerCaseTerm) ||
-          children.length > 0
-        ) {
-          return { ...node, children };
-        }
-        return null;
-      })
-      .filter((node) => node !== null);
-  }
-
-  let filteredData = $derived(filterData(tableData, searchTerm));
+  let filteredData = $derived(
+    filterEntity(tableData, searchTerm, providersOnly)
+  );
 </script>
 
 <Sidebar backdrop={false} isOpen={true} class="h-full pt-16 overflow-y-auto">
   <Search placeholder="Search" size="md" bind:value={searchTerm} clearable />
+  <Toggle color="blue" bind:checked={providersOnly} class="mt-2 ml-2"
+    >Providers Only</Toggle
+  >
+
   <SidebarGroup class="mt-2 ">
     {#each filteredData as node}
       <SidebarNode {node} />

@@ -311,11 +311,15 @@ func uHealthTransform() ([]byte, error) {
 					total += v
 					totalVisitsByMonth[i] += v
 				}
+				codingPercentage := 0.0
+				if totalVisitsSum > 0 {
+					codingPercentage = (total / totalVisitsSum) * 100
+				}
 				cptCodeMetrics = append(cptCodeMetrics, CptCodeMetric{
 					Code:   code,
 					Values: values,
 					Total:  total,
-					Coding: fmt.Sprintf("%d%%", int((total/totalVisitsSum)*100)),
+					Coding: fmt.Sprintf("%.2f%%", codingPercentage),
 				})
 			}
 
@@ -454,11 +458,16 @@ func uHealthTransform() ([]byte, error) {
 				totalVisitsByMonth[i] += v
 			}
 
+			codingPercentage := 0.0
+			if totalVisitsSum > 0 {
+				codingPercentage = (total / totalVisitsSum) * 100
+			}
+
 			facilityCptCodeMetrics = append(facilityCptCodeMetrics, CptCodeMetric{
 				Code:   code,
 				Values: values,
 				Total:  total,
-				Coding: fmt.Sprintf("%d%%", int((total/totalVisitsSum)*100)),
+				Coding: fmt.Sprintf("%.2f%%", codingPercentage),
 			})
 		}
 
@@ -615,16 +624,16 @@ func uHealthTransform() ([]byte, error) {
 			allProvidersTotalVisitsByMonth[i] += v
 		}
 
-		codingPercentage := 0
+		codingPercentage := 0.0
 		if allProvidersTotalVisitsSum > 0 {
-			codingPercentage = int((total / allProvidersTotalVisitsSum) * 100)
+			codingPercentage = (total / allProvidersTotalVisitsSum) * 100
 		}
 
 		allProvidersCptCodeMetrics = append(allProvidersCptCodeMetrics, CptCodeMetric{
 			Code:   code,
 			Values: values,
 			Total:  total,
-			Coding: fmt.Sprintf("%d%%", codingPercentage),
+			Coding: fmt.Sprintf("%.2f%%", codingPercentage),
 		})
 	}
 
@@ -702,6 +711,11 @@ func vitalCareTransform() ([]byte, error) {
 	rvuPath := "data/rvu.csv"
 
 	// Process financial data
+	units, err := processUnitsVitalCare(financialAnalysisPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process units: %w", err)
+	}
+
 	charges, err := processChargesVitalCare(financialAnalysisPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process charges: %w", err)
@@ -814,16 +828,22 @@ func vitalCareTransform() ([]byte, error) {
 			}
 
 			for _, cptCode := range uniqueCPTCodes {
-				cptChargesValues := make([]float64, 12)
+				cptUnitsValues := make([]float64, 12)
 				dataFound := false
 
 				for i, month := range months {
+					if monthUnits, ok := units[month]; ok {
+						if cptUnits, ok := monthUnits[cptCode]; ok {
+							if val, ok := cptUnits[providerName]; ok && val != 0 {
+								cptUnitsValues[i] = val
+								dataFound = true
+							}
+						}
+					}
 					if monthCharges, ok := charges[month]; ok {
 						if cptCharges, ok := monthCharges[cptCode]; ok {
 							if val, ok := cptCharges[providerName]; ok && val != 0 {
-								cptChargesValues[i] = val
 								providerChargesValues[i] += val
-								dataFound = true
 							}
 						}
 					}
@@ -846,9 +866,9 @@ func vitalCareTransform() ([]byte, error) {
 				if dataFound {
 					if _, ok := providerCptData[cptCode]; !ok {
 						providerCptData[cptCode] = make(map[string][]float64)
-						providerCptData[cptCode]["charges"] = make([]float64, 12)
+						providerCptData[cptCode]["units"] = make([]float64, 12)
 					}
-					providerCptData[cptCode]["charges"] = cptChargesValues
+					providerCptData[cptCode]["units"] = cptUnitsValues
 				}
 			}
 
@@ -856,10 +876,10 @@ func vitalCareTransform() ([]byte, error) {
 			for cptCode, data := range providerCptData {
 				if _, ok := locationCptData[cptCode]; !ok {
 					locationCptData[cptCode] = make(map[string][]float64)
-					locationCptData[cptCode]["charges"] = make([]float64, 12)
+					locationCptData[cptCode]["units"] = make([]float64, 12)
 				}
-				for i, charge := range data["charges"] {
-					locationCptData[cptCode]["charges"][i] += charge
+				for i, unit := range data["units"] {
+					locationCptData[cptCode]["units"][i] += unit
 				}
 			}
 
@@ -890,10 +910,10 @@ func vitalCareTransform() ([]byte, error) {
 				providerTotalVisitsTotal += v
 			}
 
-			providerCptChargesTotalSum := 0.0
+			providerCptUnitsTotalSum := 0.0
 			for _, data := range providerCptData {
-				for _, v := range data["charges"] {
-					providerCptChargesTotalSum += v
+				for _, v := range data["units"] {
+					providerCptUnitsTotalSum += v
 				}
 			}
 
@@ -901,22 +921,22 @@ func vitalCareTransform() ([]byte, error) {
 			providerTotalVisitsByMonth := make([]float64, 12)
 
 			for code, data := range providerCptData {
-				cptChargesTotal := 0.0
-				for i, v := range data["charges"] {
-					cptChargesTotal += v
+				cptUnitsTotal := 0.0
+				for i, v := range data["units"] {
+					cptUnitsTotal += v
 					providerTotalVisitsByMonth[i] += v
 				}
 
-				codingPercentage := 0
-				if providerCptChargesTotalSum > 0 {
-					codingPercentage = int((cptChargesTotal / providerCptChargesTotalSum) * 100)
+				codingPercentage := 0.0
+				if providerCptUnitsTotalSum > 0 {
+					codingPercentage = (cptUnitsTotal / providerCptUnitsTotalSum) * 100
 				}
 
 				providerCptCodeMetrics = append(providerCptCodeMetrics, CptCodeMetric{
 					Code:   code,
-					Values: data["charges"],
-					Total:  cptChargesTotal,
-					Coding: fmt.Sprintf("%d%%", codingPercentage),
+					Values: data["units"],
+					Total:  cptUnitsTotal,
+					Coding: fmt.Sprintf("%.2f%%", codingPercentage),
 				})
 			}
 
@@ -925,7 +945,7 @@ func vitalCareTransform() ([]byte, error) {
 				Total: Metric{
 					Label:  "Total",
 					Values: providerTotalVisitsByMonth,
-					Total:  providerCptChargesTotalSum,
+					Total:  providerCptUnitsTotalSum,
 					Coding: "-",
 				},
 				TotalVisits: Metric{
@@ -976,10 +996,10 @@ func vitalCareTransform() ([]byte, error) {
 			locationTotalVisitsTotal += v
 		}
 
-		locationCptChargesTotalSum := 0.0
+		locationCptUnitsTotalSum := 0.0
 		for _, data := range locationCptData {
-			for _, v := range data["charges"] {
-				locationCptChargesTotalSum += v
+			for _, v := range data["units"] {
+				locationCptUnitsTotalSum += v
 			}
 		}
 
@@ -987,22 +1007,22 @@ func vitalCareTransform() ([]byte, error) {
 		locationTotalVisitsByMonth := make([]float64, 12)
 
 		for code, data := range locationCptData {
-			cptChargesTotal := 0.0
-			for i, v := range data["charges"] {
-				cptChargesTotal += v
+			cptUnitsTotal := 0.0
+			for i, v := range data["units"] {
+				cptUnitsTotal += v
 				locationTotalVisitsByMonth[i] += v
 			}
 
-			codingPercentage := 0
-			if locationCptChargesTotalSum > 0 {
-				codingPercentage = int((cptChargesTotal / locationCptChargesTotalSum) * 100)
+			codingPercentage := 0.0
+			if locationCptUnitsTotalSum > 0 {
+				codingPercentage = (cptUnitsTotal / locationCptUnitsTotalSum) * 100
 			}
 
 			locationCptCodeMetrics = append(locationCptCodeMetrics, CptCodeMetric{
 				Code:   code,
-				Values: data["charges"],
-				Total:  cptChargesTotal,
-				Coding: fmt.Sprintf("%d%%", codingPercentage),
+				Values: data["units"],
+				Total:  cptUnitsTotal,
+				Coding: fmt.Sprintf("%.2f%%", codingPercentage),
 			})
 		}
 
@@ -1011,7 +1031,7 @@ func vitalCareTransform() ([]byte, error) {
 			Total: Metric{
 				Label:  "Total",
 				Values: locationTotalVisitsByMonth,
-				Total:  locationCptChargesTotalSum,
+				Total:  locationCptUnitsTotalSum,
 				Coding: "-",
 			},
 			TotalVisits: Metric{
@@ -1049,8 +1069,10 @@ func vitalCareTransform() ([]byte, error) {
 		ID:       "all-providers",
 		Label:    "All Providers",
 		IconType: "clinic",
+		Children: []*Node{},
 	}
 
+	// Aggregate data for all unique providers
 	allProvidersChargesValues := make([]float64, 12)
 	allProvidersPaymentsValues := make([]float64, 12)
 	allProvidersAdjustmentsValues := make([]float64, 12)
@@ -1059,54 +1081,69 @@ func vitalCareTransform() ([]byte, error) {
 	allProvidersCptData := make(map[string]map[string][]float64)
 
 	for _, providerName := range uniqueProviders {
+		// Process RVUs and Total Visits once per provider for all months
 		for i, month := range months {
-			// Aggregate Charges, Payments, and Adjustments
-			for _, cptCode := range uniqueCPTCodes {
+			if monthRVUs, ok := rvus[month]; ok {
+				if val, ok := monthRVUs[providerName]; ok {
+					allProvidersRvusValues[i] += float64(val)
+				}
+			}
+			if monthTotalVisits, ok := totalVisits[month]; ok {
+				if val, ok := monthTotalVisits[providerName]; ok {
+					allProvidersTotalVisitsValues[i] += float64(val)
+				}
+			}
+		}
+
+		for _, cptCode := range uniqueCPTCodes {
+			cptUnitsValues := make([]float64, 12)
+			dataFound := false
+
+			for i, month := range months {
+				if monthUnits, ok := units[month]; ok {
+					if cptUnits, ok := monthUnits[cptCode]; ok {
+						if val, ok := cptUnits[providerName]; ok && val != 0 {
+							cptUnitsValues[i] = val
+							dataFound = true
+						}
+					}
+				}
 				if monthCharges, ok := charges[month]; ok {
 					if cptCharges, ok := monthCharges[cptCode]; ok {
 						if val, ok := cptCharges[providerName]; ok && val != 0 {
 							allProvidersChargesValues[i] += val
-							if _, ok := allProvidersCptData[cptCode]; !ok {
-								allProvidersCptData[cptCode] = make(map[string][]float64)
-								allProvidersCptData[cptCode]["charges"] = make([]float64, 12)
-							}
-							allProvidersCptData[cptCode]["charges"][i] += val
+						}
+					}
+				}
+				if monthPayments, ok := payments[month]; ok {
+					if cptPayments, ok := monthPayments[cptCode]; ok {
+						if val, ok := cptPayments[providerName]; ok {
+							allProvidersPaymentsValues[i] += val
+						}
+					}
+				}
+				if monthAdjustments, ok := adjustments[month]; ok {
+					if cptAdjustments, ok := monthAdjustments[cptCode]; ok {
+						if val, ok := cptAdjustments[providerName]; ok {
+							allProvidersAdjustmentsValues[i] += val
 						}
 					}
 				}
 			}
-			if monthPayments, ok := payments[month]; ok {
-				for _, cptMap := range monthPayments {
-					if val, ok := cptMap[providerName]; ok {
-						allProvidersPaymentsValues[i] += val
-					}
+
+			if dataFound {
+				if _, ok := allProvidersCptData[cptCode]; !ok {
+					allProvidersCptData[cptCode] = make(map[string][]float64)
+					allProvidersCptData[cptCode]["units"] = make([]float64, 12)
 				}
-			}
-			if monthAdjustments, ok := adjustments[month]; ok {
-				for _, cptMap := range monthAdjustments {
-					if val, ok := cptMap[providerName]; ok {
-						allProvidersAdjustmentsValues[i] += val
-					}
+				for i, unit := range cptUnitsValues {
+					allProvidersCptData[cptCode]["units"][i] += unit
 				}
 			}
 		}
 	}
 
-	// Aggregate RVUs and Total Visits for "All Providers"
-	for i, month := range months {
-		if monthRVUs, ok := rvus[month]; ok {
-			for _, rvuVal := range monthRVUs {
-				allProvidersRvusValues[i] += float64(rvuVal)
-			}
-		}
-		if monthTotalVisits, ok := totalVisits[month]; ok {
-			for _, visitVal := range monthTotalVisits {
-				allProvidersTotalVisitsValues[i] += float64(visitVal)
-			}
-		}
-	}
-
-	// Build NodeData for All Providers
+	// Build NodeData for all providers
 	allProvidersChargesTotal := 0.0
 	for _, v := range allProvidersChargesValues {
 		allProvidersChargesTotal += v
@@ -1124,10 +1161,10 @@ func vitalCareTransform() ([]byte, error) {
 		allProvidersTotalVisitsTotal += v
 	}
 
-	allProvidersCptChargesTotalSum := 0.0
+	allProvidersCptUnitsTotalSum := 0.0
 	for _, data := range allProvidersCptData {
-		for _, v := range data["charges"] {
-			allProvidersCptChargesTotalSum += v
+		for _, v := range data["units"] {
+			allProvidersCptUnitsTotalSum += v
 		}
 	}
 
@@ -1135,22 +1172,22 @@ func vitalCareTransform() ([]byte, error) {
 	allProvidersTotalVisitsByMonth := make([]float64, 12)
 
 	for code, data := range allProvidersCptData {
-		cptChargesTotal := 0.0
-		for i, v := range data["charges"] {
-			cptChargesTotal += v
+		cptUnitsTotal := 0.0
+		for i, v := range data["units"] {
+			cptUnitsTotal += v
 			allProvidersTotalVisitsByMonth[i] += v
 		}
 
-		codingPercentage := 0
-		if allProvidersCptChargesTotalSum > 0 {
-			codingPercentage = int((cptChargesTotal / allProvidersCptChargesTotalSum) * 100)
+		codingPercentage := 0.0
+		if allProvidersCptUnitsTotalSum > 0 {
+			codingPercentage = (cptUnitsTotal / allProvidersCptUnitsTotalSum) * 100
 		}
 
 		allProvidersCptCodeMetrics = append(allProvidersCptCodeMetrics, CptCodeMetric{
 			Code:   code,
-			Values: data["charges"],
-			Total:  cptChargesTotal,
-			Coding: fmt.Sprintf("%d%%", codingPercentage),
+			Values: data["units"],
+			Total:  cptUnitsTotal,
+			Coding: fmt.Sprintf("%.2f%%", codingPercentage),
 		})
 	}
 
@@ -1159,7 +1196,7 @@ func vitalCareTransform() ([]byte, error) {
 		Total: Metric{
 			Label:  "Total",
 			Values: allProvidersTotalVisitsByMonth,
-			Total:  allProvidersCptChargesTotalSum,
+			Total:  allProvidersCptUnitsTotalSum,
 			Coding: "-",
 		},
 		TotalVisits: Metric{

@@ -156,7 +156,6 @@ func uploadDirectoryToBucket(bucketName, directoryPath string) error {
 	})
 }
 
-// deleteLocalData deletes the specified local directory and all its contents.
 // createBucket ensures a bucket exists, creating it if necessary.
 func createBucket(bucketName string) error {
 	ctx := context.Background()
@@ -213,6 +212,7 @@ func clearBucket(bucketName string) error {
 	return nil
 }
 
+// deleteLocalData deletes the specified local directory and all its contents.
 func deleteLocalData(path string) error {
 	log.Printf("Attempting to delete local data directory: %s", path)
 	err := os.RemoveAll(path)

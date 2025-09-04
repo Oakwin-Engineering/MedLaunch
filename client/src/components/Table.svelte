@@ -12,8 +12,6 @@
 
   let { tableData } = $props();
 
-  console.log(tableData);
-
   const data = $derived(tableData.data);
   const label = $derived(tableData.label);
 </script>

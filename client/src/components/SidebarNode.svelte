@@ -23,7 +23,7 @@
     person: UserSolid,
   };
 
-  const IconComponent = iconMap[node.iconType];
+  const IconComponent = $derived(iconMap[node.iconType]);
 </script>
 
 {#if node.children && node.children.length > 0}

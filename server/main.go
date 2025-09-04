@@ -153,7 +153,7 @@ func uploadBucketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a temporary directory to store uploaded files
-	tempDir, err := os.MkdirTemp("", "upload-"+customerID+"-*")
+	tempDir, err := os.MkdirTemp("./", "upload-"+customerID+"-*")
 	if err != nil {
 		log.Printf("Error creating temp dir: %v", err)
 		http.Error(w, "Error creating temp dir", http.StatusInternalServerError)

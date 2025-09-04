@@ -400,6 +400,10 @@ func processContractualAdjustmentsVitalCare(filePath string) (map[string]map[str
 	return processFinancialAnalysis(filePath, 11) // Contractual Adjustment at index 12
 }
 
+func processUnitsVitalCare(filePath string) (map[string]map[string]map[string]float64, error) {
+	return processFinancialAnalysis(filePath, 17) // Units at index 18
+}
+
 func getUniqueCPTCodes(filePath string) ([]string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {

@@ -11,8 +11,8 @@
     alt=""
     class="h-12 object-contain mr-4"
   />
-  <a class="text-xl font-bold text-blue-600" href="/"
+  <span class="text-xl font-bold text-blue-600"
     >{customers.find((customer) => customer.customerID === customerID)
-      ?.customerName} Financial Dashboard</a
+      ?.customerName} Financial Dashboard</span
   >
 </nav>

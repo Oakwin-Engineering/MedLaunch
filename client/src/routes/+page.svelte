@@ -1,11 +1,24 @@
 <script lang="ts">
+  import {
+    Spinner,
+    Toast,
+    Footer,
+    FooterCopyright,
+    FooterLinkGroup,
+    FooterLink,
+  } from "flowbite-svelte";
+  import { FileCsvSolid, CheckCircleSolid } from "flowbite-svelte-icons";
+  import { fly } from "svelte/transition";
   import { env } from "$env/dynamic/public";
   import { customers } from "../constants";
 
   const apiUrl = env.PUBLIC_API_URL;
 
-  let files: { [key: string]: File[] | null } = {};
-  let isLoading: { [key: string]: boolean } = {};
+  let files: { [key: string]: File[] | null } = $state({});
+  let isLoading: { [key: string]: boolean } = $state({});
+  let showSuccessToast = $state(false);
+  let showErrorToast = $state(false);
+  let inputRefs = $state<{ [key: string]: HTMLInputElement }>({});
 
   function handleFileSelect(event: Event, customerID: string) {
     const target = event.target as HTMLInputElement;
@@ -35,29 +48,23 @@
         }
       );
 
-      if (uploadResponse.ok) {
-        const etlResponse = await fetch(`${apiUrl}/trigger-etl/${customerID}`, {
-          method: "POST",
-        });
+      const etlResponse = await fetch(`${apiUrl}/trigger-etl/${customerID}`, {
+        method: "POST",
+      });
 
-        if (etlResponse.ok) {
-          alert(
-            `Successfully uploaded files and started ETL process for ${customerID}`
-          );
-          files[customerID] = null; // Clear files after successful upload
-        } else {
-          const errorText = await etlResponse.text();
-          alert(
-            `File upload succeeded, but failed to start ETL process: ${errorText}`
-          );
+      if (etlResponse.ok && uploadResponse.ok) {
+        files[customerID] = null;
+        // Clear the input file field, this is needed to reset the file selection as input file retains the previous selection
+        if (inputRefs[customerID]) {
+          inputRefs[customerID].value = "";
         }
+        showSuccessToast = true;
       } else {
-        const errorText = await uploadResponse.text();
-        alert(`Failed to upload files: ${errorText}`);
+        showErrorToast = true;
       }
     } catch (error) {
       console.error("Error during ETL process:", error);
-      alert("An error occurred while trying to start the ETL process.");
+      showErrorToast = true;
     } finally {
       isLoading[customerID] = false;
     }
@@ -70,6 +77,28 @@
 
 <div class="min-h-screen bg-gray-100 py-12">
   <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    {#if showSuccessToast}
+      <div class="fixed top-5 right-5 z-50">
+        <Toast transition={fly} params={{ x: 200 }} color="green" class="mb-4">
+          {#snippet icon()}
+            <CheckCircleSolid class="h-6 w-6" />
+          {/snippet}
+          ETL successful
+        </Toast>
+      </div>
+    {/if}
+
+    {#if showErrorToast}
+      <div class="fixed top-5 right-5 z-50">
+        <Toast transition={fly} params={{ x: 200 }} color="red" class="mb-4">
+          {#snippet icon()}
+            <CheckCircleSolid class="h-6 w-6" />
+          {/snippet}
+          ETL failed
+        </Toast>
+      </div>
+    {/if}
+
     <header class="mb-12 text-center">
       <h1 class="text-5xl font-extrabold text-blue-900 mb-2">MedLaunch</h1>
       <p class="text-xl text-gray-500">Admin Dashboard</p>
@@ -87,39 +116,17 @@
               role="button"
               tabindex="0"
               class="relative border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300"
-              on:keydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  const input = e.currentTarget.querySelector(
-                    'input[type="file"]'
-                  ) as HTMLInputElement;
-
-                  if (input) {
-                    input.click();
-                  }
-                }
-              }}
             >
               <input
                 type="file"
                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 disabled={isLoading[customer.customerID]}
-                on:change={(e) => handleFileSelect(e, customer.customerID)}
-                multiple
                 webkitdirectory
+                onchange={(e) => handleFileSelect(e, customer.customerID)}
+                bind:this={inputRefs[customer.customerID]}
               />
               <div class="flex flex-col items-center justify-center space-y-2">
-                <svg
-                  class="w-10 h-10 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4H7z"
-                  ></path></svg
-                >
+                <FileCsvSolid class="shrink-0 h-6 w-6" />
                 <p class="text-gray-500">
                   <span class="font-semibold text-blue-600"
                     >Click to upload</span
@@ -131,47 +138,21 @@
               </div>
 
               {#if files[customer.customerID]}
-                {@const customerFiles = files[customer.customerID]}
-                {#if customerFiles && customerFiles.length > 0}
-                  <div class="mt-4 text-sm text-gray-600">
-                    <strong>Selected files:</strong>
-                    <ul class="list-disc list-inside">
-                      {#each customerFiles as file}
-                        <li>{file.name}</li>
-                      {/each}
-                    </ul>
-                  </div>
-                {/if}
+                <div class="mt-4 text-sm text-gray-600">
+                  <strong
+                    >{files[customer.customerID].length} files selected</strong
+                  >
+                </div>
               {/if}
             </div>
             <button
-              on:click={() => handleRunETL(customer.customerID)}
+              onclick={() => handleRunETL(customer.customerID)}
               disabled={!files[customer.customerID] ||
                 isLoading[customer.customerID]}
               class="w-full px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed hover:shadow-lg disabled:shadow-none flex items-center justify-center"
             >
               {#if isLoading[customer.customerID]}
-                <svg
-                  class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                  ></circle>
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Processing...
+                <Spinner color="blue" />
               {:else}
                 Run ETL Process
               {/if}
@@ -191,3 +172,15 @@
     </main>
   </div>
 </div>
+
+<Footer class="fixed bottom-0 left-0 right-0">
+  <FooterCopyright href="/" by="MedLaunch" year={new Date().getFullYear()} />
+  <FooterLinkGroup
+    class="mt-3 flex flex-wrap items-center text-sm text-gray-500 sm:mt-0 dark:text-gray-400"
+  >
+    <FooterLink href="/">About</FooterLink>
+    <FooterLink href="/">Privacy Policy</FooterLink>
+    <FooterLink href="/">Licensing</FooterLink>
+    <FooterLink href="/">Contact</FooterLink>
+  </FooterLinkGroup>
+</Footer>

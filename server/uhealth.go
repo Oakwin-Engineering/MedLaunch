@@ -1,48 +1,144 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"sort"
 )
 
-// Node represents a facility or provider in the hierarchy
-type Node struct {
-	ID       string   `json:"id"`
-	Label    string   `json:"label"`
-	IconType string   `json:"iconType"`
-	Data     NodeData `json:"data"`
-	Children []*Node  `json:"children,omitempty"`
+type LocationMapping struct {
+	State    string
+	Division string
 }
 
-// NodeData holds the structured metrics for a node.
-type NodeData struct {
-	CptCodes        []CptCodeMetric `json:"cptCodes"`
-	Total           Metric          `json:"total"`
-	TotalVisits     Metric          `json:"totalVisits"`
-	Charges         Metric          `json:"charges"`
-	Payments        Metric          `json:"payments"`
-	RVUs            Metric          `json:"rvus"`
-	Payroll         Metric          `json:"payroll"`
-	OperatingProfit Metric          `json:"operatingProfit"`
+func loadStateDivisionMapping(path string) (map[string]LocationMapping, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	mapping := make(map[string]LocationMapping)
+	for i, record := range records {
+		if i == 0 { // Skip header
+			continue
+		}
+		if len(record) >= 3 {
+			state := record[0]
+			division := record[1]
+			location := record[2]
+			if state != "" && division != "" && location != "" {
+				mapping[location] = LocationMapping{
+					State:    state,
+					Division: division,
+				}
+			}
+		}
+	}
+
+	return mapping, nil
 }
 
-// CptCodeMetric represents a CPT code's metrics.
-type CptCodeMetric struct {
-	Code   string    `json:"code"`
-	Values []float64 `json:"values"`
-	Total  float64   `json:"total"`
-	Coding string    `json:"coding"`
-}
+func aggregateMetrics(charges, collections, visits, payroll, opm []float64, codes map[string][]float64) NodeData {
+	chargesTotal := 0.0
+	collectionsTotal := 0.0
+	visitsTotal := 0.0
+	payrollTotal := 0.0
+	opmTotal := 0.0
 
-// Metric represents a single metric with a label, values, total, and coding.
-type Metric struct {
-	Label  string    `json:"label"`
-	Values []float64 `json:"values"`
-	Total  float64   `json:"total"`
-	Coding string    `json:"coding"`
+	for i := 0; i < 12; i++ {
+		chargesTotal += charges[i]
+		collectionsTotal += collections[i]
+		visitsTotal += visits[i]
+		payrollTotal += payroll[i]
+		opmTotal += opm[i]
+	}
+
+	totalVisitsByMonth := make([]float64, 12)
+	totalVisitsSum := 0.0
+
+	for _, values := range codes {
+		total := 0.0
+		for _, v := range values {
+			total += v
+		}
+		totalVisitsSum += total
+	}
+
+	cptCodeMetrics := []CptCodeMetric{}
+	for code, values := range codes {
+		total := 0.0
+		for i, v := range values {
+			total += v
+			totalVisitsByMonth[i] += v
+		}
+
+		codingPercentage := 0.0
+		if totalVisitsSum > 0 {
+			codingPercentage = (total / totalVisitsSum) * 100
+		}
+
+		cptCodeMetrics = append(cptCodeMetrics, CptCodeMetric{
+			Code:   code,
+			Values: values,
+			Total:  total,
+			Coding: fmt.Sprintf("%.2f%%", codingPercentage),
+		})
+	}
+
+	return NodeData{
+		CptCodes: cptCodeMetrics,
+		Total: Metric{
+			Label:  "Total",
+			Values: totalVisitsByMonth,
+			Total:  totalVisitsSum,
+			Coding: "-",
+		},
+		TotalVisits: Metric{
+			Label:  "Total Visits",
+			Values: visits,
+			Total:  visitsTotal,
+			Coding: "-",
+		},
+		Charges: Metric{
+			Label:  "Charges",
+			Values: charges,
+			Total:  chargesTotal,
+			Coding: "-",
+		},
+		Payments: Metric{
+			Label:  "Payments",
+			Values: collections,
+			Total:  collectionsTotal,
+			Coding: "-",
+		},
+		RVUs: Metric{
+			Label:  "RVUs",
+			Values: make([]float64, 12),
+			Total:  0,
+			Coding: "-",
+		},
+		Payroll: Metric{
+			Label:  "Payroll",
+			Values: payroll,
+			Total:  payrollTotal,
+			Coding: "-",
+		},
+		OperatingProfit: Metric{
+			Label:  "Operating Profit Margin",
+			Values: opm,
+			Total:  opmTotal,
+			Coding: "-",
+		},
+	}
 }
 
 func uHealthTransform() ([]byte, error) {
@@ -93,6 +189,12 @@ func uHealthTransform() ([]byte, error) {
 		return nil, fmt.Errorf("no data found to process")
 	}
 
+	// Load state and division mapping
+	locationMapping, err := loadStateDivisionMapping("data/state_division_mapping.csv")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load location mapping: %v", err)
+	}
+
 	// Initialize maps to store data for each month
 	monthlyFacilityTotals := make(map[string]map[string]float64)
 	monthlyProviderTotals := make(map[string]map[string]float64)
@@ -117,6 +219,8 @@ func uHealthTransform() ([]byte, error) {
 		fmt.Printf("Error matching provider names: %v\n", err)
 		return nil, fmt.Errorf("failed to match provider names: %v", err)
 	}
+
+	fmt.Println(namesMapping)
 
 	// Process each month's data
 	for _, month := range months {
@@ -166,11 +270,15 @@ func uHealthTransform() ([]byte, error) {
 	// Map to track provider occurrences across all facilities
 	providerOccurrences := make(map[string]int)
 
-	// Create the final items slice
-	var items []*Node
+	// Create the final hierarchical structure
+	states := make(map[string]map[string][]*Node)
 
 	// Convert the map to our desired structure
 	for facility, providers := range mergedFacilityProviders {
+		mapping, ok := locationMapping[facility]
+		if !ok {
+			continue // Skip facilities not in the mapping file
+		}
 
 		facilityNode := &Node{
 			ID:       slugify(facility),
@@ -517,7 +625,100 @@ func uHealthTransform() ([]byte, error) {
 			},
 		}
 
-		items = append(items, facilityNode)
+		// Add the facility node to the correct state and division
+		if _, exists := states[mapping.State]; !exists {
+			states[mapping.State] = make(map[string][]*Node)
+		}
+		states[mapping.State][mapping.Division] = append(states[mapping.State][mapping.Division], facilityNode)
+	}
+
+	var items []*Node
+
+	// Build the final hierarchy and aggregate data upwards
+	for stateName, divisions := range states {
+		stateNode := &Node{
+			ID:       slugify(stateName),
+			Label:    stateName,
+			IconType: "state",
+			Children: []*Node{},
+		}
+
+		stateChargesValues := make([]float64, 12)
+		stateCollectionsValues := make([]float64, 12)
+		stateVisitsValues := make([]float64, 12)
+		statePayrollValues := make([]float64, 12)
+		stateOPMValues := make([]float64, 12)
+		stateCodeValues := make(map[string][]float64)
+
+		for divisionName, facilityNodes := range divisions {
+			divisionNode := &Node{
+				ID:       slugify(divisionName),
+				Label:    divisionName,
+				IconType: "division",
+				Children: facilityNodes,
+			}
+
+			divisionChargesValues := make([]float64, 12)
+			divisionCollectionsValues := make([]float64, 12)
+			divisionVisitsValues := make([]float64, 12)
+			divisionPayrollValues := make([]float64, 12)
+			divisionOPMValues := make([]float64, 12)
+			divisionCodeValues := make(map[string][]float64)
+
+			for _, facilityNode := range facilityNodes {
+				for i := 0; i < 12; i++ {
+					divisionChargesValues[i] += facilityNode.Data.Charges.Values[i]
+					divisionCollectionsValues[i] += facilityNode.Data.Payments.Values[i]
+					divisionVisitsValues[i] += facilityNode.Data.TotalVisits.Values[i]
+					divisionPayrollValues[i] += facilityNode.Data.Payroll.Values[i]
+				}
+				for _, cptCode := range facilityNode.Data.CptCodes {
+					if _, exists := divisionCodeValues[cptCode.Code]; !exists {
+						divisionCodeValues[cptCode.Code] = make([]float64, 12)
+					}
+					for i := 0; i < 12; i++ {
+						divisionCodeValues[cptCode.Code][i] += cptCode.Values[i]
+					}
+				}
+			}
+
+			for i := 0; i < 12; i++ {
+				if divisionCollectionsValues[i] > 0 && divisionPayrollValues[i] > 0 {
+					divisionOPMValues[i] = divisionCollectionsValues[i] - divisionPayrollValues[i]
+				} else {
+					divisionOPMValues[i] = 0
+				}
+			}
+
+			divisionNode.Data = aggregateMetrics(divisionChargesValues, divisionCollectionsValues, divisionVisitsValues, divisionPayrollValues, divisionOPMValues, divisionCodeValues)
+			stateNode.Children = append(stateNode.Children, divisionNode)
+
+			for i := 0; i < 12; i++ {
+				stateChargesValues[i] += divisionChargesValues[i]
+				stateCollectionsValues[i] += divisionCollectionsValues[i]
+				stateVisitsValues[i] += divisionVisitsValues[i]
+				statePayrollValues[i] += divisionPayrollValues[i]
+			}
+			for code, values := range divisionCodeValues {
+				if _, exists := stateCodeValues[code]; !exists {
+					stateCodeValues[code] = make([]float64, 12)
+				}
+				for i := 0; i < 12; i++ {
+					stateCodeValues[code][i] += values[i]
+				}
+			}
+		}
+
+		for i := 0; i < 12; i++ {
+			if stateCollectionsValues[i] > 0 && statePayrollValues[i] > 0 {
+				stateOPMValues[i] = stateCollectionsValues[i] - statePayrollValues[i]
+			} else {
+				stateOPMValues[i] = 0
+			}
+		}
+
+		stateNode.Data = aggregateMetrics(stateChargesValues, stateCollectionsValues, stateVisitsValues, statePayrollValues, stateOPMValues, stateCodeValues)
+		items = append(items, stateNode)
 	}
 
 	// Create "All Providers" aggregate node
@@ -682,18 +883,25 @@ func uHealthTransform() ([]byte, error) {
 			Coding: "-",
 		},
 	}
-	items = append(items, allProvidersNode)
 
-	// Sort facilities alphabetically by label, keeping "All Providers" at the beginning
+	// Sort states, divisions, and facilities alphabetically
 	sort.Slice(items, func(i, j int) bool {
-		if items[i].Label == "All Providers" {
-			return true // "All Providers" comes first
-		}
-		if items[j].Label == "All Providers" {
-			return false // "All Providers" comes first
-		}
-		return items[i].Label < items[j].Label // otherwise, sort alphabetically
+		return items[i].Label < items[j].Label
 	})
+
+	for _, stateNode := range items {
+		sort.Slice(stateNode.Children, func(i, j int) bool {
+			return stateNode.Children[i].Label < stateNode.Children[j].Label
+		})
+		for _, divisionNode := range stateNode.Children {
+			sort.Slice(divisionNode.Children, func(i, j int) bool {
+				return divisionNode.Children[i].Label < divisionNode.Children[j].Label
+			})
+		}
+	}
+
+	// Prepend "All Providers" node to the beginning of the items slice
+	items = append([]*Node{allProvidersNode}, items...)
 
 	// Marshal the data to JSON
 	jsonData, err := json.Marshal(items)
@@ -702,553 +910,4 @@ func uHealthTransform() ([]byte, error) {
 	}
 
 	return jsonData, nil
-}
-
-func vitalCareTransform() ([]byte, error) {
-	// File paths
-	financialAnalysisPath := "data/financial_analysis.csv"
-	providerLocationPath := "data/provider_location_relationship.csv"
-	rvuPath := "data/rvu.csv"
-
-	// Process financial data
-	units, err := processUnitsVitalCare(financialAnalysisPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process units: %w", err)
-	}
-
-	charges, err := processChargesVitalCare(financialAnalysisPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process charges: %w", err)
-	}
-
-	payments, err := processPaymentsVitalCare(financialAnalysisPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process payments: %w", err)
-	}
-	adjustments, err := processContractualAdjustmentsVitalCare(financialAnalysisPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process contractual adjustments: %w", err)
-	}
-	uniqueCPTCodes, err := getUniqueCPTCodes(financialAnalysisPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get unique CPT codes: %w", err)
-	}
-
-	rvus, err := processRVUsVitalCare(rvuPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process RVUs: %w", err)
-	}
-
-	totalVisits, err := processTotalVisitsVitalCare(rvuPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process total visits: %w", err)
-	}
-
-	// Process provider-location relationships
-	locationProviderMap, uniqueProviders, err := processProviderLocationRelationshipVitalCare(providerLocationPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process provider location relationships: %w", err)
-	}
-
-	var items []*Node
-
-	// Create a reverse map for provider to locations
-	providerToLocationMap := make(map[string][]string)
-	for loc, provs := range locationProviderMap {
-		for _, p := range provs {
-			providerToLocationMap[p] = append(providerToLocationMap[p], loc)
-		}
-	}
-
-	// Map to track provider occurrences across all locations
-	providerOccurrences := make(map[string]int)
-
-	// Create nodes for each location
-	for location, providers := range locationProviderMap {
-		locationNode := &Node{
-			ID:       slugify(location),
-			Label:    location,
-			IconType: "clinic",
-			Children: []*Node{},
-		}
-
-		locationChargesValues := make([]float64, 12)
-		locationPaymentsValues := make([]float64, 12)
-		locationAdjustmentsValues := make([]float64, 12)
-		locationRvusValues := make([]float64, 12)
-		locationTotalVisitsValues := make([]float64, 12)
-		locationCptData := make(map[string]map[string][]float64)
-
-		for _, providerName := range providers {
-			// Get occurrence number for this provider
-			providerOccurrences[providerName]++
-			occurrence := 1
-
-			// If provider appears in multiple locations, find which occurrence this is
-			if len(providerToLocationMap[providerName]) > 1 {
-				for i, l := range providerToLocationMap[providerName] {
-					if l == location {
-						occurrence = i + 1
-						break
-					}
-				}
-			}
-
-			// Create provider ID with occurrence number if needed
-			providerID := slugify(providerName)
-			if len(providerToLocationMap[providerName]) > 1 {
-				providerID = fmt.Sprintf("%s_%d", providerID, occurrence)
-			}
-
-			providerNode := &Node{
-				ID:       providerID,
-				Label:    providerName,
-				IconType: "person",
-			}
-
-			providerChargesValues := make([]float64, 12)
-			providerPaymentsValues := make([]float64, 12)
-			providerAdjustmentsValues := make([]float64, 12)
-			providerRvusValues := make([]float64, 12)
-			providerTotalVisitsValues := make([]float64, 12)
-			providerCptData := make(map[string]map[string][]float64)
-
-			// Process RVUs and Total Visits once per provider for all months
-			for i, month := range months {
-				if monthRVUs, ok := rvus[month]; ok {
-					if val, ok := monthRVUs[providerName]; ok {
-						providerRvusValues[i] = float64(val)
-					}
-				}
-				if monthTotalVisits, ok := totalVisits[month]; ok {
-					if val, ok := monthTotalVisits[providerName]; ok {
-						providerTotalVisitsValues[i] = float64(val)
-					}
-				}
-			}
-
-			for _, cptCode := range uniqueCPTCodes {
-				cptUnitsValues := make([]float64, 12)
-				dataFound := false
-
-				for i, month := range months {
-					if monthUnits, ok := units[month]; ok {
-						if cptUnits, ok := monthUnits[cptCode]; ok {
-							if val, ok := cptUnits[providerName]; ok && val != 0 {
-								cptUnitsValues[i] = val
-								dataFound = true
-							}
-						}
-					}
-					if monthCharges, ok := charges[month]; ok {
-						if cptCharges, ok := monthCharges[cptCode]; ok {
-							if val, ok := cptCharges[providerName]; ok && val != 0 {
-								providerChargesValues[i] += val
-							}
-						}
-					}
-					if monthPayments, ok := payments[month]; ok {
-						if cptPayments, ok := monthPayments[cptCode]; ok {
-							if val, ok := cptPayments[providerName]; ok {
-								providerPaymentsValues[i] += val
-							}
-						}
-					}
-					if monthAdjustments, ok := adjustments[month]; ok {
-						if cptAdjustments, ok := monthAdjustments[cptCode]; ok {
-							if val, ok := cptAdjustments[providerName]; ok {
-								providerAdjustmentsValues[i] += val
-							}
-						}
-					}
-				}
-
-				if dataFound {
-					if _, ok := providerCptData[cptCode]; !ok {
-						providerCptData[cptCode] = make(map[string][]float64)
-						providerCptData[cptCode]["units"] = make([]float64, 12)
-					}
-					providerCptData[cptCode]["units"] = cptUnitsValues
-				}
-			}
-
-			// Aggregate provider CPT data to location
-			for cptCode, data := range providerCptData {
-				if _, ok := locationCptData[cptCode]; !ok {
-					locationCptData[cptCode] = make(map[string][]float64)
-					locationCptData[cptCode]["units"] = make([]float64, 12)
-				}
-				for i, unit := range data["units"] {
-					locationCptData[cptCode]["units"][i] += unit
-				}
-			}
-
-			// Aggregate provider data to location
-			for i := 0; i < 12; i++ {
-				locationChargesValues[i] += providerChargesValues[i]
-				locationPaymentsValues[i] += providerPaymentsValues[i]
-				locationAdjustmentsValues[i] += providerAdjustmentsValues[i]
-				locationRvusValues[i] += providerRvusValues[i]
-				locationTotalVisitsValues[i] += providerTotalVisitsValues[i]
-			}
-
-			// Build NodeData for provider
-			providerChargesTotal := 0.0
-			for _, v := range providerChargesValues {
-				providerChargesTotal += v
-			}
-			providerPaymentsTotal := 0.0
-			for _, v := range providerPaymentsValues {
-				providerPaymentsTotal += v
-			}
-			providerRvusTotal := 0.0
-			for _, v := range providerRvusValues {
-				providerRvusTotal += v
-			}
-			providerTotalVisitsTotal := 0.0
-			for _, v := range providerTotalVisitsValues {
-				providerTotalVisitsTotal += v
-			}
-
-			providerCptUnitsTotalSum := 0.0
-			for _, data := range providerCptData {
-				for _, v := range data["units"] {
-					providerCptUnitsTotalSum += v
-				}
-			}
-
-			providerCptCodeMetrics := []CptCodeMetric{}
-			providerTotalVisitsByMonth := make([]float64, 12)
-
-			for code, data := range providerCptData {
-				cptUnitsTotal := 0.0
-				for i, v := range data["units"] {
-					cptUnitsTotal += v
-					providerTotalVisitsByMonth[i] += v
-				}
-
-				codingPercentage := 0.0
-				if providerCptUnitsTotalSum > 0 {
-					codingPercentage = (cptUnitsTotal / providerCptUnitsTotalSum) * 100
-				}
-
-				providerCptCodeMetrics = append(providerCptCodeMetrics, CptCodeMetric{
-					Code:   code,
-					Values: data["units"],
-					Total:  cptUnitsTotal,
-					Coding: fmt.Sprintf("%.2f%%", codingPercentage),
-				})
-			}
-
-			providerNode.Data = NodeData{
-				CptCodes: providerCptCodeMetrics,
-				Total: Metric{
-					Label:  "Total",
-					Values: providerTotalVisitsByMonth,
-					Total:  providerCptUnitsTotalSum,
-					Coding: "-",
-				},
-				TotalVisits: Metric{
-					Label:  "Total Visits",
-					Values: providerTotalVisitsValues,
-					Total:  providerTotalVisitsTotal,
-					Coding: "-",
-				},
-				Charges: Metric{
-					Label:  "Charges",
-					Values: providerChargesValues,
-					Total:  providerChargesTotal,
-					Coding: "-",
-				},
-				Payments: Metric{
-					Label:  "Payments",
-					Values: providerPaymentsValues,
-					Total:  providerPaymentsTotal,
-					Coding: "-",
-				},
-				RVUs: Metric{
-					Label:  "RVUs",
-					Values: providerRvusValues,
-					Total:  providerRvusTotal,
-					Coding: "-",
-				},
-				Payroll:         Metric{Label: "Payroll"},
-				OperatingProfit: Metric{Label: "Operating Profit Margin"},
-			}
-			locationNode.Children = append(locationNode.Children, providerNode)
-		}
-
-		// Build NodeData for location
-		locationChargesTotal := 0.0
-		for _, v := range locationChargesValues {
-			locationChargesTotal += v
-		}
-		locationPaymentsTotal := 0.0
-		for _, v := range locationPaymentsValues {
-			locationPaymentsTotal += v
-		}
-		locationRvusTotal := 0.0
-		for _, v := range locationRvusValues {
-			locationRvusTotal += v
-		}
-		locationTotalVisitsTotal := 0.0
-		for _, v := range locationTotalVisitsValues {
-			locationTotalVisitsTotal += v
-		}
-
-		locationCptUnitsTotalSum := 0.0
-		for _, data := range locationCptData {
-			for _, v := range data["units"] {
-				locationCptUnitsTotalSum += v
-			}
-		}
-
-		locationCptCodeMetrics := []CptCodeMetric{}
-		locationTotalVisitsByMonth := make([]float64, 12)
-
-		for code, data := range locationCptData {
-			cptUnitsTotal := 0.0
-			for i, v := range data["units"] {
-				cptUnitsTotal += v
-				locationTotalVisitsByMonth[i] += v
-			}
-
-			codingPercentage := 0.0
-			if locationCptUnitsTotalSum > 0 {
-				codingPercentage = (cptUnitsTotal / locationCptUnitsTotalSum) * 100
-			}
-
-			locationCptCodeMetrics = append(locationCptCodeMetrics, CptCodeMetric{
-				Code:   code,
-				Values: data["units"],
-				Total:  cptUnitsTotal,
-				Coding: fmt.Sprintf("%.2f%%", codingPercentage),
-			})
-		}
-
-		locationNode.Data = NodeData{
-			CptCodes: locationCptCodeMetrics,
-			Total: Metric{
-				Label:  "Total",
-				Values: locationTotalVisitsByMonth,
-				Total:  locationCptUnitsTotalSum,
-				Coding: "-",
-			},
-			TotalVisits: Metric{
-				Label:  "Total Visits",
-				Values: locationTotalVisitsValues,
-				Total:  locationTotalVisitsTotal,
-				Coding: "-",
-			},
-			Charges: Metric{
-				Label:  "Charges",
-				Values: locationChargesValues,
-				Total:  locationChargesTotal,
-				Coding: "-",
-			},
-			Payments: Metric{
-				Label:  "Payments",
-				Values: locationPaymentsValues,
-				Total:  locationPaymentsTotal,
-				Coding: "-",
-			},
-			RVUs: Metric{
-				Label:  "RVUs",
-				Values: locationRvusValues,
-				Total:  locationRvusTotal,
-				Coding: "-",
-			},
-			Payroll:         Metric{Label: "Payroll"},
-			OperatingProfit: Metric{Label: "Operating Profit Margin"},
-		}
-		items = append(items, locationNode)
-	}
-
-	// Create "All Providers" aggregate node
-	allProvidersNode := &Node{
-		ID:       "all-providers",
-		Label:    "All Providers",
-		IconType: "clinic",
-		Children: []*Node{},
-	}
-
-	// Aggregate data for all unique providers
-	allProvidersChargesValues := make([]float64, 12)
-	allProvidersPaymentsValues := make([]float64, 12)
-	allProvidersAdjustmentsValues := make([]float64, 12)
-	allProvidersRvusValues := make([]float64, 12)
-	allProvidersTotalVisitsValues := make([]float64, 12)
-	allProvidersCptData := make(map[string]map[string][]float64)
-
-	for _, providerName := range uniqueProviders {
-		// Process RVUs and Total Visits once per provider for all months
-		for i, month := range months {
-			if monthRVUs, ok := rvus[month]; ok {
-				if val, ok := monthRVUs[providerName]; ok {
-					allProvidersRvusValues[i] += float64(val)
-				}
-			}
-			if monthTotalVisits, ok := totalVisits[month]; ok {
-				if val, ok := monthTotalVisits[providerName]; ok {
-					allProvidersTotalVisitsValues[i] += float64(val)
-				}
-			}
-		}
-
-		for _, cptCode := range uniqueCPTCodes {
-			cptUnitsValues := make([]float64, 12)
-			dataFound := false
-
-			for i, month := range months {
-				if monthUnits, ok := units[month]; ok {
-					if cptUnits, ok := monthUnits[cptCode]; ok {
-						if val, ok := cptUnits[providerName]; ok && val != 0 {
-							cptUnitsValues[i] = val
-							dataFound = true
-						}
-					}
-				}
-				if monthCharges, ok := charges[month]; ok {
-					if cptCharges, ok := monthCharges[cptCode]; ok {
-						if val, ok := cptCharges[providerName]; ok && val != 0 {
-							allProvidersChargesValues[i] += val
-						}
-					}
-				}
-				if monthPayments, ok := payments[month]; ok {
-					if cptPayments, ok := monthPayments[cptCode]; ok {
-						if val, ok := cptPayments[providerName]; ok {
-							allProvidersPaymentsValues[i] += val
-						}
-					}
-				}
-				if monthAdjustments, ok := adjustments[month]; ok {
-					if cptAdjustments, ok := monthAdjustments[cptCode]; ok {
-						if val, ok := cptAdjustments[providerName]; ok {
-							allProvidersAdjustmentsValues[i] += val
-						}
-					}
-				}
-			}
-
-			if dataFound {
-				if _, ok := allProvidersCptData[cptCode]; !ok {
-					allProvidersCptData[cptCode] = make(map[string][]float64)
-					allProvidersCptData[cptCode]["units"] = make([]float64, 12)
-				}
-				for i, unit := range cptUnitsValues {
-					allProvidersCptData[cptCode]["units"][i] += unit
-				}
-			}
-		}
-	}
-
-	// Build NodeData for all providers
-	allProvidersChargesTotal := 0.0
-	for _, v := range allProvidersChargesValues {
-		allProvidersChargesTotal += v
-	}
-	allProvidersPaymentsTotal := 0.0
-	for _, v := range allProvidersPaymentsValues {
-		allProvidersPaymentsTotal += v
-	}
-	allProvidersRvusTotal := 0.0
-	for _, v := range allProvidersRvusValues {
-		allProvidersRvusTotal += v
-	}
-	allProvidersTotalVisitsTotal := 0.0
-	for _, v := range allProvidersTotalVisitsValues {
-		allProvidersTotalVisitsTotal += v
-	}
-
-	allProvidersCptUnitsTotalSum := 0.0
-	for _, data := range allProvidersCptData {
-		for _, v := range data["units"] {
-			allProvidersCptUnitsTotalSum += v
-		}
-	}
-
-	allProvidersCptCodeMetrics := []CptCodeMetric{}
-	allProvidersTotalVisitsByMonth := make([]float64, 12)
-
-	for code, data := range allProvidersCptData {
-		cptUnitsTotal := 0.0
-		for i, v := range data["units"] {
-			cptUnitsTotal += v
-			allProvidersTotalVisitsByMonth[i] += v
-		}
-
-		codingPercentage := 0.0
-		if allProvidersCptUnitsTotalSum > 0 {
-			codingPercentage = (cptUnitsTotal / allProvidersCptUnitsTotalSum) * 100
-		}
-
-		allProvidersCptCodeMetrics = append(allProvidersCptCodeMetrics, CptCodeMetric{
-			Code:   code,
-			Values: data["units"],
-			Total:  cptUnitsTotal,
-			Coding: fmt.Sprintf("%.2f%%", codingPercentage),
-		})
-	}
-
-	allProvidersNode.Data = NodeData{
-		CptCodes: allProvidersCptCodeMetrics,
-		Total: Metric{
-			Label:  "Total",
-			Values: allProvidersTotalVisitsByMonth,
-			Total:  allProvidersCptUnitsTotalSum,
-			Coding: "-",
-		},
-		TotalVisits: Metric{
-			Label:  "Total Visits",
-			Values: allProvidersTotalVisitsValues,
-			Total:  allProvidersTotalVisitsTotal,
-			Coding: "-",
-		},
-		Charges: Metric{
-			Label:  "Charges",
-			Values: allProvidersChargesValues,
-			Total:  allProvidersChargesTotal,
-			Coding: "-",
-		},
-		Payments: Metric{
-			Label:  "Payments",
-			Values: allProvidersPaymentsValues,
-			Total:  allProvidersPaymentsTotal,
-			Coding: "-",
-		},
-		RVUs: Metric{
-			Label:  "RVUs",
-			Values: allProvidersRvusValues,
-			Total:  allProvidersRvusTotal,
-			Coding: "-",
-		},
-		Payroll:         Metric{Label: "Payroll"},
-		OperatingProfit: Metric{Label: "Operating Profit Margin"},
-	}
-	items = append(items, allProvidersNode)
-
-	// Sort items alphabetically, keeping "All Providers" at the top
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Label == "All Providers" {
-			return true
-		}
-		if items[j].Label == "All Providers" {
-			return false
-		}
-		return items[i].Label < items[j].Label
-	})
-
-	return json.Marshal(items)
-}
-
-func transformData(clientName string) ([]byte, error) {
-	switch clientName {
-	case "uhealth":
-		return uHealthTransform()
-	case "vitalcare":
-		return vitalCareTransform()
-	default:
-		return nil, errors.New("no customer name sent in")
-	}
 }

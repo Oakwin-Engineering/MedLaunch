@@ -9,6 +9,13 @@ const apiUrl = env.PUBLIC_API_URL;
 export const load = async ({ params }: { params: Slug }) => {
   const { customerID } = params;
 
+  if (customerID === "favicon.ico") {
+    return {
+      tableData: [],
+      customerID,
+    };
+  }
+
   try {
     const res = await fetch(`${apiUrl}/table-data/${customerID}`);
     if (!res.ok) {

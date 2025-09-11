@@ -20,7 +20,7 @@
 
   <SidebarGroup class="mt-2 ">
     {#each filteredData as node}
-      <SidebarNode {node} />
+      <SidebarNode node={node} depth={0} />
     {/each}
   </SidebarGroup>
 </Sidebar>

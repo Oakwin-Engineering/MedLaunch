@@ -12,6 +12,54 @@ import (
 	"time"
 )
 
+// Node represents a facility or provider in the hierarchy
+type Node struct {
+	ID       string   `json:"id"`
+	Label    string   `json:"label"`
+	IconType string   `json:"iconType"`
+	Data     NodeData `json:"data"`
+	Children []*Node  `json:"children,omitempty"`
+}
+
+// NodeData holds the structured metrics for a node.
+type NodeData struct {
+	CptCodes        []CptCodeMetric `json:"cptCodes"`
+	Total           Metric          `json:"total"`
+	TotalVisits     Metric          `json:"totalVisits"`
+	Charges         Metric          `json:"charges"`
+	Payments        Metric          `json:"payments"`
+	RVUs            Metric          `json:"rvus"`
+	Payroll         Metric          `json:"payroll"`
+	OperatingProfit Metric          `json:"operatingProfit"`
+}
+
+// CptCodeMetric represents a CPT code's metrics.
+type CptCodeMetric struct {
+	Code   string    `json:"code"`
+	Values []float64 `json:"values"`
+	Total  float64   `json:"total"`
+	Coding string    `json:"coding"`
+}
+
+// Metric represents a single metric with a label, values, total, and coding.
+type Metric struct {
+	Label  string    `json:"label"`
+	Values []float64 `json:"values"`
+	Total  float64   `json:"total"`
+	Coding string    `json:"coding"`
+}
+
+func transformData(clientName string) ([]byte, error) {
+	switch clientName {
+	case "uhealth":
+		return uHealthTransform()
+	case "vitalcare":
+		return vitalCareTransform()
+	default:
+		return nil, errors.New("no customer name sent in")
+	}
+}
+
 // Generic function to process charges from CSV and return total amounts by key
 func processCSV(filePath string, keyIdx, amountIdx int) (map[string]float64, error) {
 	file, err := os.Open(filePath)
@@ -404,6 +452,90 @@ func processUnitsVitalCare(filePath string) (map[string]map[string]map[string]fl
 	return processFinancialAnalysis(filePath, 17) // Units at index 18
 }
 
+func processPayrollVitalCare(filePath string) (map[string]map[string]float64, string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, "", fmt.Errorf("error opening payroll file: %v", err)
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	r.FieldsPerRecord = -1 // Disable field count check
+
+	// Skip the first 4 header lines
+	for i := 0; i < 4; i++ {
+		if _, err := r.Read(); err != nil {
+			return nil, "", fmt.Errorf("error reading CSV header: %v", err)
+		}
+	}
+
+	data := make(map[string]map[string]float64)
+	var currentEmployee string
+	employeeSet := make(map[string]struct{})
+
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Error reading CSV record: %v", err)
+			continue
+		}
+
+		if len(record) < 15 {
+			continue // Skip incomplete records
+		}
+
+		// Employee name is in column 5 (index 4). If it's not empty, update current employee.
+		if strings.TrimSpace(record[4]) != "" {
+			currentEmployee = strings.Trim(strings.TrimSpace(record[4]), "\"")
+			employeeSet[currentEmployee] = struct{}{}
+		}
+
+		if currentEmployee == "" {
+			continue // Skip if we haven't identified an employee yet
+		}
+
+		// Check date is in column 11 (index 10)
+		dateStr := strings.TrimSpace(record[10])
+		// Net pay is in column 15 (index 14)
+		netPayStr := strings.TrimSpace(record[14])
+
+		if dateStr == "" || netPayStr == "" {
+			continue
+		}
+
+		// Parse date to get month
+		parsedTime, err := time.Parse("01/02/2006", dateStr)
+		if err != nil {
+			log.Printf("Could not parse date: %s", dateStr)
+			continue
+		}
+		month := strings.ToLower(parsedTime.Month().String())
+
+		// Parse net pay
+		netPay, err := strconv.ParseFloat(netPayStr, 64)
+		if err != nil {
+			log.Printf("Could not parse net pay: %s", netPayStr)
+			continue
+		}
+
+		if _, ok := data[month]; !ok {
+			data[month] = make(map[string]float64)
+		}
+
+		data[month][currentEmployee] += netPay
+	}
+
+	var uniqueEmployees string
+	for employee := range employeeSet {
+		uniqueEmployees += "[" + employee + "]"
+	}
+
+	return data, uniqueEmployees, nil
+}
+
 func getUniqueCPTCodes(filePath string) ([]string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -475,9 +607,9 @@ func processProviderLocationRelationshipVitalCare(filePath string) (map[string][
 	}
 
 	// Convert the set of providers to a slice
-	uniqueProviders := make([]string, 0, len(providerSet))
+	var uniqueProviders []string
 	for provider := range providerSet {
-		uniqueProviders = append(uniqueProviders, provider)
+		uniqueProviders = append(uniqueProviders, strings.TrimSpace(provider))
 	}
 
 	return locationProviderRelationships, uniqueProviders, nil

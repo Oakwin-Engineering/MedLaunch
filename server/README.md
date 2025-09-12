@@ -63,9 +63,8 @@ In production, authentication is handled automatically using a [service account]
 3. **Authenticate with Google Cloud (see above).**
 4. **Run the project:**
    ```sh
-   go run main.go
+   go run .
    ```
-   - Edit `main.go` to specify the bucket, object, or folder you want to download.
 
 ---
 

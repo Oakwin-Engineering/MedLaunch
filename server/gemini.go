@@ -42,7 +42,6 @@ func matchProviderNames(namesToMatch string, devMode bool) (map[string]string, e
   "Aparna Ranjan": "Ranjan, Aparna",
   "April Ruffin": "Rivers, Rebecca",
   "Benjamin Davis": "Davis, Benjamin Cameron",
-  "Berna Jean Besana-Mirafuente": "Besana-Mirafuente, Berna Jean",
   "Bridgette Smoot": "Smoot, Bridgette M",
   "Cathy Arney": "Arney, Cathy",
   "Charles Moon": "Moon, Charles Keith",

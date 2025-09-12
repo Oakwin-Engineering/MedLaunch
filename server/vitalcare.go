@@ -63,16 +63,11 @@ func vitalCareTransform() ([]byte, error) {
 	for _, provider := range uniqueProviders {
 		uniqueProvidersString += "[" + strings.TrimSpace(provider) + "]"
 	}
-	namesMapping, err := matchProviderNames("List 1: "+uniqueProvidersString+"List 2: "+uniquePaylocityProviders, true)
+	namesMapping, err := matchProviderNames("List 1: "+uniqueProvidersString+"List 2: "+uniquePaylocityProviders, false)
 	if err != nil {
 		fmt.Printf("Error matching provider names: %v\n", err)
 		return nil, fmt.Errorf("failed to match provider names: %v", err)
 	}
-
-	// fmt.Println(uniquePaylocityProviders, "--------")
-	// fmt.Println(uniqueProvidersString, "--------")
-	fmt.Println(namesMapping, "--------")
-	fmt.Println(payroll)
 
 	var items []*Node
 

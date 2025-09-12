@@ -35,7 +35,7 @@ func main() {
 	// Wrap the router with the CORS handler
 	handler := c.Handler(router)
 
-	log.Println("Starting server on :8080 ...")
+	log.Println("Starting server on :8080 ....")
 
 	if err := http.ListenAndServe(":8080", handler); err != nil {
 		log.Fatalf("Server failed: %v", err)

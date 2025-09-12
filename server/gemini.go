@@ -146,7 +146,7 @@ func matchProviderNames(namesToMatch string, devMode bool) (map[string]string, e
 
 	result, err := client.Models.GenerateContent(
 		ctx,
-		"gemini-2.5-pro",
+		"gemini-2.5-flash",
 		genai.Text(instruction+" "+namesToMatch),
 		&genai.GenerateContentConfig{
 			ResponseMIMEType: "application/json",

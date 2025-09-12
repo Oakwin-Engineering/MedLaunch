@@ -14,50 +14,18 @@
 
   const apiUrl = env.PUBLIC_API_URL;
 
-  let files: { [key: string]: File[] | null } = $state({});
   let isLoading: { [key: string]: boolean } = $state({});
   let showSuccessToast = $state(false);
   let showErrorToast = $state(false);
-  let inputRefs = $state<{ [key: string]: HTMLInputElement }>({});
-
-  function handleFileSelect(event: Event, customerID: string) {
-    const target = event.target as HTMLInputElement;
-    if (target.files) {
-      files[customerID] = Array.from(target.files);
-    }
-  }
 
   async function handleRunETL(customerID: string) {
-    const customerFiles = files[customerID];
-    if (!customerFiles) return;
-
-    isLoading[customerID] = true;
-
-    const formData = new FormData();
-    for (const file of customerFiles) {
-      // Flatten the folder structure by sending only the filename.
-      formData.append("files", file, file.name);
-    }
-
     try {
-      const uploadResponse = await fetch(
-        `${apiUrl}/upload-bucket/${customerID}`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
       const etlResponse = await fetch(`${apiUrl}/trigger-etl/${customerID}`, {
         method: "POST",
       });
 
-      if (etlResponse.ok && uploadResponse.ok) {
+      if (etlResponse.ok) {
         files[customerID] = null;
-        // Clear the input file field, this is needed to reset the file selection as input file retains the previous selection
-        if (inputRefs[customerID]) {
-          inputRefs[customerID].value = "";
-        }
         showSuccessToast = true;
       } else {
         showErrorToast = true;
@@ -112,39 +80,6 @@
           </h2>
 
           <div class="space-y-6 flex-grow mb-6">
-            <div
-              role="button"
-              tabindex="0"
-              class="relative border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-300"
-            >
-              <input
-                type="file"
-                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                disabled={isLoading[customer.customerID]}
-                webkitdirectory
-                onchange={(e) => handleFileSelect(e, customer.customerID)}
-                bind:this={inputRefs[customer.customerID]}
-              />
-              <div class="flex flex-col items-center justify-center space-y-2">
-                <FileCsvSolid class="shrink-0 h-6 w-6" />
-                <p class="text-gray-500">
-                  <span class="font-semibold text-blue-600"
-                    >Click to upload</span
-                  >
-                </p>
-                <p class="text-xs text-gray-400">
-                  Follow the SOP for folder upload guidelines
-                </p>
-              </div>
-
-              {#if files[customer.customerID]}
-                <div class="mt-4 text-sm text-gray-600">
-                  <strong
-                    >{files[customer.customerID].length} files selected</strong
-                  >
-                </div>
-              {/if}
-            </div>
             <button
               onclick={() => handleRunETL(customer.customerID)}
               disabled={!files[customer.customerID] ||

@@ -7,7 +7,7 @@
     FooterLinkGroup,
     FooterLink,
   } from "flowbite-svelte";
-  import { FileCsvSolid, CheckCircleSolid } from "flowbite-svelte-icons";
+  import { CheckCircleSolid } from "flowbite-svelte-icons";
   import { fly } from "svelte/transition";
   import { env } from "$env/dynamic/public";
   import { customers } from "../constants";

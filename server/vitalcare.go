@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 )
 
 func vitalCareTransform() ([]byte, error) {
@@ -59,15 +58,7 @@ func vitalCareTransform() ([]byte, error) {
 		return nil, fmt.Errorf("failed to process provider location relationships: %w", err)
 	}
 
-	var uniqueProvidersString string
-	for _, provider := range uniqueProviders {
-		uniqueProvidersString += "[" + strings.TrimSpace(provider) + "]"
-	}
-	namesMapping, err := matchProviderNames("List 1: "+uniqueProvidersString+"List 2: "+uniquePaylocityProviders, false)
-	if err != nil {
-		fmt.Printf("Error matching provider names: %v\n", err)
-		return nil, fmt.Errorf("failed to match provider names: %v", err)
-	}
+	namesMapping := MatchNames(uniqueProviders, uniquePaylocityProviders)
 	fmt.Println(namesMapping)
 
 	var items []*Node

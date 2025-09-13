@@ -240,10 +240,10 @@ func processProviderFacilityRelationships(filePath string) (map[string]map[strin
 	return facilityProviders, providerFacilities
 }
 
-func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]float64, string, error) {
+func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]float64, []string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("error opening CSV file: %v", err)
+		return nil, nil, fmt.Errorf("error opening CSV file: %v", err)
 	}
 	defer file.Close()
 
@@ -252,7 +252,7 @@ func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]fl
 	// Skip header
 	_, err = csvReader.Read()
 	if err != nil {
-		return nil, "", fmt.Errorf("error reading CSV header: %v", err)
+		return nil, nil, fmt.Errorf("error reading CSV header: %v", err)
 	}
 
 	// Initialize result map: month -> provider -> total earnings
@@ -300,7 +300,7 @@ func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]fl
 	}
 
 	// Create slice of unique provider names
-	var uniqueProviders string
+	var uniqueProviders []string
 	providerSet := make(map[string]bool)
 
 	// Collect unique provider names from all months
@@ -308,7 +308,7 @@ func processADPProviderPayrollMonthly(filePath string) (map[string]map[string]fl
 		for provider := range providers {
 			if !providerSet[provider] {
 				providerSet[provider] = true
-				uniqueProviders += provider
+				uniqueProviders = append(uniqueProviders, strings.TrimSpace(provider))
 			}
 		}
 	}
@@ -452,10 +452,10 @@ func processUnitsVitalCare(filePath string) (map[string]map[string]map[string]fl
 	return processFinancialAnalysis(filePath, 17) // Units at index 18
 }
 
-func processPayrollVitalCare(filePath string) (map[string]map[string]float64, string, error) {
+func processPayrollVitalCare(filePath string) (map[string]map[string]float64, []string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, "", fmt.Errorf("error opening payroll file: %v", err)
+		return nil, nil, fmt.Errorf("error opening payroll file: %v", err)
 	}
 	defer f.Close()
 
@@ -465,7 +465,7 @@ func processPayrollVitalCare(filePath string) (map[string]map[string]float64, st
 	// Skip the first 4 header lines
 	for i := 0; i < 4; i++ {
 		if _, err := r.Read(); err != nil {
-			return nil, "", fmt.Errorf("error reading CSV header: %v", err)
+			return nil, nil, fmt.Errorf("error reading CSV header: %v", err)
 		}
 	}
 
@@ -528,9 +528,9 @@ func processPayrollVitalCare(filePath string) (map[string]map[string]float64, st
 		data[month][currentEmployee] += netPay
 	}
 
-	var uniqueEmployees string
+	var uniqueEmployees []string
 	for employee := range employeeSet {
-		uniqueEmployees += "[" + employee + "]"
+		uniqueEmployees = append(uniqueEmployees, strings.TrimSpace(employee))
 	}
 
 	return data, uniqueEmployees, nil

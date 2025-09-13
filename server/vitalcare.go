@@ -68,6 +68,7 @@ func vitalCareTransform() ([]byte, error) {
 		fmt.Printf("Error matching provider names: %v\n", err)
 		return nil, fmt.Errorf("failed to match provider names: %v", err)
 	}
+	fmt.Println(namesMapping)
 
 	var items []*Node
 

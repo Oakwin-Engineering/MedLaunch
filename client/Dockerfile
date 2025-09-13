@@ -14,7 +14,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# ENV PUBLIC_API_URL="https://medlaunch-server-973560072485.us-central1.run.app"
+ENV PUBLIC_API_URL="https://medlaunch-server-973560072485.us-central1.run.app"
 ENV PORT=8080
 
 COPY --from=builder /app/package.json ./package.json

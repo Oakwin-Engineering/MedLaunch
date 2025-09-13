@@ -98,34 +98,9 @@ func triggerETL(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "ETL process completed successfully")
 }
 
-func downloadDataHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Starting data download process...")
-
-	// Get customer ID from URL parameters and map to bucket name
-	vars := mux.Vars(r)
-	customerId := vars["customer-id"]
-	bucketName, err := getBucketName(customerId)
-	if err != nil {
-		log.Printf("Error mapping customer ID: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Error mapping customer ID: %v", err)
-		return
-	}
-
-	// Download data from GCS
-	if err := downloadBucket(bucketName + "-pretransformed"); err != nil {
-		log.Printf("Error downloading data: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Error downloading data: %v", err)
-		return
-	}
-	log.Println("Data download complete")
-
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Data download completed successfully")
-}
-
 func triggerETLTest(w http.ResponseWriter, r *http.Request) {
+	log.Println("Starting ETL Without Download process...")
+
 	// Get customer ID from URL parameters and map to bucket name
 	vars := mux.Vars(r)
 	customerId := vars["customer-id"]
@@ -206,4 +181,31 @@ func tableDataHandler(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(w, rc); err != nil {
 		log.Printf("Failed to write response: %v", err)
 	}
+}
+
+func downloadDataHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Starting data download process...")
+
+	// Get customer ID from URL parameters and map to bucket name
+	vars := mux.Vars(r)
+	customerId := vars["customer-id"]
+	bucketName, err := getBucketName(customerId)
+	if err != nil {
+		log.Printf("Error mapping customer ID: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Error mapping customer ID: %v", err)
+		return
+	}
+
+	// Download data from GCS
+	if err := downloadBucket(bucketName + "-pretransformed"); err != nil {
+		log.Printf("Error downloading data: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Error downloading data: %v", err)
+		return
+	}
+	log.Println("Data download complete")
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Data download completed successfully")
 }

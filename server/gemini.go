@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"google.golang.org/genai"
@@ -28,7 +29,9 @@ Do not provide code or explanations - just return the raw JSON object.
 `
 
 func matchProviderNames(namesToMatch string, devMode bool) (map[string]string, error) {
+	log.Println("Starting provider name matching...")
 	if devMode {
+		log.Println("Running in development mode.")
 		var rawMap map[string]string
 		response := `{
   "Abdul Kawa": "Kawa, Abdul",
@@ -131,6 +134,7 @@ func matchProviderNames(namesToMatch string, devMode bool) (map[string]string, e
 		return rawMap, nil
 	}
 
+	log.Println("Running in production mode, calling Gemini API...")
 	ctx := context.Background()
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
@@ -165,5 +169,6 @@ func matchProviderNames(namesToMatch string, devMode bool) (map[string]string, e
 		return nil, fmt.Errorf("failed to parse response: %v", err)
 	}
 
+	log.Println("Successfully matched provider names.")
 	return rawMap, nil
 }

@@ -25,7 +25,6 @@
       });
 
       if (etlResponse.ok) {
-        files[customerID] = null;
         showSuccessToast = true;
       } else {
         showErrorToast = true;
@@ -82,8 +81,6 @@
           <div class="space-y-6 flex-grow mb-6">
             <button
               onclick={() => handleRunETL(customer.customerID)}
-              disabled={!files[customer.customerID] ||
-                isLoading[customer.customerID]}
               class="w-full px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed hover:shadow-lg disabled:shadow-none flex items-center justify-center"
             >
               {#if isLoading[customer.customerID]}

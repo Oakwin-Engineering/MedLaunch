@@ -128,7 +128,7 @@
           {#if rvusExpanded}
             <TableBodyRow class="bg-green-50">
               <TableBodyCell class="py-2 px-3"></TableBodyCell>
-              <TableBodyCell class="py-2 px-3 pl-8"
+              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal"
                 >{data.rvuPerPatient.label}</TableBodyCell
               >
               {#each data.rvuPerPatient.values as value}
@@ -176,7 +176,7 @@
           {#if chargesExpanded}
             <TableBodyRow class="bg-purple-50">
               <TableBodyCell class="py-2 px-3"></TableBodyCell>
-              <TableBodyCell class="py-2 px-3 pl-8"
+              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal"
                 >{data.chargePerPatient.label}</TableBodyCell
               >
               {#each data.chargePerPatient.values as value}
@@ -222,7 +222,7 @@
           {#if paymentsExpanded}
             <TableBodyRow class="bg-blue-50">
               <TableBodyCell class="py-2 px-3"></TableBodyCell>
-              <TableBodyCell class="py-2 px-3 pl-8"
+              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal"
                 >{data.paymentPercentOfCharges.label}</TableBodyCell
               >
               {#each data.paymentPercentOfCharges.values as value}
@@ -238,7 +238,7 @@
             </TableBodyRow>
             <TableBodyRow class="bg-blue-50">
               <TableBodyCell class="py-2 px-3"></TableBodyCell>
-              <TableBodyCell class="py-2 px-3 pl-8"
+              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal"
                 >{data.averageReceiptsPerPatient.label}</TableBodyCell
               >
               {#each data.averageReceiptsPerPatient.values as value}
@@ -286,11 +286,11 @@
           {#if adjustmentsExpanded}
             <TableBodyRow class="bg-pink-50">
               <TableBodyCell class="py-2 px-3"></TableBodyCell>
-              <TableBodyCell class="py-2 px-3 pl-8"
+              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal"
                 >{data.adjustmentPercentOfCharges.label}</TableBodyCell
               >
               {#each data.adjustmentPercentOfCharges.values as value}
-                <TableBodyCell class="py-2 px-3 text-center"
+                <TableBodyCell class="py-2 px-3 text-center "
                   >{value.toFixed(2)}%</TableBodyCell
                 >
               {/each}

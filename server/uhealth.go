@@ -68,24 +68,12 @@ func aggregateMetrics(charges, collections, visits, payroll, opm []float64, code
 	payrollTotal := 0.0
 	opmTotal := 0.0
 
-	chargePerPatientTotal := 0.0
-	paymentPercentOfChargesTotal := 0.0
-	averageReceiptsPerPatientTotal := 0.0
-
 	for i := 0; i < 12; i++ {
 		chargesTotal += charges[i]
 		collectionsTotal += collections[i]
 		visitsTotal += visits[i]
 		payrollTotal += payroll[i]
 		opmTotal += opm[i]
-	}
-
-	if visitsTotal > 0 {
-		chargePerPatientTotal = chargesTotal / visitsTotal
-		averageReceiptsPerPatientTotal = collectionsTotal / visitsTotal
-	}
-	if chargesTotal > 0 {
-		paymentPercentOfChargesTotal = (collectionsTotal / chargesTotal) * 100
 	}
 
 	totalVisitsByMonth := make([]float64, 12)
@@ -168,19 +156,19 @@ func aggregateMetrics(charges, collections, visits, payroll, opm []float64, code
 		ChargePerPatient: Metric{
 			Label:  "Charges per Patient",
 			Values: chargePerPatientValues,
-			Total:  chargePerPatientTotal,
+			Total:  0,
 			Coding: "-",
 		},
 		PaymentPercentOfCharges: Metric{
 			Label:  "Payment % of Charges",
 			Values: paymentPercentOfChargesValues,
-			Total:  paymentPercentOfChargesTotal,
+			Total:  0,
 			Coding: "-",
 		},
 		AverageReceiptsPerPatient: Metric{
 			Label:  "Average Receipts per Patient",
 			Values: averageReceiptsPerPatientValues,
-			Total:  averageReceiptsPerPatientTotal,
+			Total:  0,
 			Coding: "-",
 		},
 		AdjustmentPercentOfCharges: Metric{
@@ -464,19 +452,6 @@ func uHealthTransform() ([]byte, error) {
 				}
 			}
 
-			chargePerPatientTotal := 0.0
-			if visitsTotal > 0 {
-				chargePerPatientTotal = chargesTotal / visitsTotal
-			}
-			paymentPercentOfChargesTotal := 0.0
-			if chargesTotal > 0 {
-				paymentPercentOfChargesTotal = (collectionsTotal / chargesTotal) * 100
-			}
-			averageReceiptsPerPatientTotal := 0.0
-			if visitsTotal > 0 {
-				averageReceiptsPerPatientTotal = collectionsTotal / visitsTotal
-			}
-
 			// Calculate total visits across all CPT codes
 			totalVisitsByMonth := make([]float64, 12)
 			totalVisitsSum := 0.0
@@ -559,19 +534,19 @@ func uHealthTransform() ([]byte, error) {
 				ChargePerPatient: Metric{
 					Label:  "Charges per Patient",
 					Values: chargePerPatientValues,
-					Total:  chargePerPatientTotal,
+					Total:  0,
 					Coding: "-",
 				},
 				PaymentPercentOfCharges: Metric{
 					Label:  "Payment % of Charges",
 					Values: paymentPercentOfChargesValues,
-					Total:  paymentPercentOfChargesTotal,
+					Total:  0,
 					Coding: "-",
 				},
 				AverageReceiptsPerPatient: Metric{
 					Label:  "Average Receipts per Patient",
 					Values: averageReceiptsPerPatientValues,
-					Total:  averageReceiptsPerPatientTotal,
+					Total:  0,
 					Coding: "-",
 				},
 				AdjustmentPercentOfCharges: Metric{
@@ -665,19 +640,6 @@ func uHealthTransform() ([]byte, error) {
 			}
 		}
 
-		facilityChargePerPatientTotal := 0.0
-		if facilityVisitsTotal > 0 {
-			facilityChargePerPatientTotal = facilityChargesTotal / facilityVisitsTotal
-		}
-		facilityPaymentPercentOfChargesTotal := 0.0
-		if facilityChargesTotal > 0 {
-			facilityPaymentPercentOfChargesTotal = (facilityCollectionsTotal / facilityChargesTotal) * 100
-		}
-		facilityAverageReceiptsPerPatientTotal := 0.0
-		if facilityVisitsTotal > 0 {
-			facilityAverageReceiptsPerPatientTotal = facilityCollectionsTotal / facilityVisitsTotal
-		}
-
 		// Add CPT code metrics first
 		totalVisitsByMonth := make([]float64, 12)
 		totalVisitsSum := 0.0
@@ -758,19 +720,19 @@ func uHealthTransform() ([]byte, error) {
 			ChargePerPatient: Metric{
 				Label:  "Charges per Patient",
 				Values: facilityChargePerPatientValues,
-				Total:  facilityChargePerPatientTotal,
+				Total:  0,
 				Coding: "-",
 			},
 			PaymentPercentOfCharges: Metric{
 				Label:  "Payment % of Charges",
 				Values: facilityPaymentPercentOfChargesValues,
-				Total:  facilityPaymentPercentOfChargesTotal,
+				Total:  0,
 				Coding: "-",
 			},
 			AverageReceiptsPerPatient: Metric{
 				Label:  "Average Receipts per Patient",
 				Values: facilityAverageReceiptsPerPatientValues,
-				Total:  facilityAverageReceiptsPerPatientTotal,
+				Total:  0,
 				Coding: "-",
 			},
 			AdjustmentPercentOfCharges: Metric{
@@ -976,19 +938,6 @@ func uHealthTransform() ([]byte, error) {
 		}
 	}
 
-	allProvidersChargePerPatientTotal := 0.0
-	if allProvidersVisitsTotal > 0 {
-		allProvidersChargePerPatientTotal = allProvidersChargesTotal / allProvidersVisitsTotal
-	}
-	allProvidersPaymentPercentOfChargesTotal := 0.0
-	if allProvidersChargesTotal > 0 {
-		allProvidersPaymentPercentOfChargesTotal = (allProvidersCollectionsTotal / allProvidersChargesTotal) * 100
-	}
-	allProvidersAverageReceiptsPerPatientTotal := 0.0
-	if allProvidersVisitsTotal > 0 {
-		allProvidersAverageReceiptsPerPatientTotal = allProvidersCollectionsTotal / allProvidersVisitsTotal
-	}
-
 	// Calculate total visits for CPT codes for percentage calculation
 	var allProvidersTotalVisitsSum float64
 	for _, values := range allProvidersCodeValues {
@@ -1069,19 +1018,19 @@ func uHealthTransform() ([]byte, error) {
 		ChargePerPatient: Metric{
 			Label:  "Charges per Patient",
 			Values: allProvidersChargePerPatientValues,
-			Total:  allProvidersChargePerPatientTotal,
+			Total:  0,
 			Coding: "-",
 		},
 		PaymentPercentOfCharges: Metric{
 			Label:  "Payment % of Charges",
 			Values: allProvidersPaymentPercentOfChargesValues,
-			Total:  allProvidersPaymentPercentOfChargesTotal,
+			Total:  0,
 			Coding: "-",
 		},
 		AverageReceiptsPerPatient: Metric{
 			Label:  "Average Receipts per Patient",
 			Values: allProvidersAverageReceiptsPerPatientValues,
-			Total:  allProvidersAverageReceiptsPerPatientTotal,
+			Total:  0,
 			Coding: "-",
 		},
 		AdjustmentPercentOfCharges: Metric{

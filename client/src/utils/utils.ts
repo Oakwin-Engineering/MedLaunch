@@ -1,3 +1,8 @@
+export const formatNumber = (value: number) => {
+  if (typeof value !== 'number') return value;
+  return value.toLocaleString('en-US');
+};
+
 export const formatCurrency = (value: number) => {
   if (value === 0) return "0";
   return value.toLocaleString("en-US", {

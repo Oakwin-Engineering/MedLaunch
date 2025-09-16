@@ -23,14 +23,20 @@ type Node struct {
 
 // NodeData holds the structured metrics for a node.
 type NodeData struct {
-	CptCodes        []CptCodeMetric `json:"cptCodes"`
-	Total           Metric          `json:"total"`
-	TotalVisits     Metric          `json:"totalVisits"`
-	Charges         Metric          `json:"charges"`
-	Payments        Metric          `json:"payments"`
-	RVUs            Metric          `json:"rvus"`
-	Payroll         Metric          `json:"payroll"`
-	OperatingProfit Metric          `json:"operatingProfit"`
+	CptCodes                   []CptCodeMetric `json:"cptCodes"`
+	Total                      Metric          `json:"total"`
+	TotalVisits                Metric          `json:"totalVisits"`
+	Charges                    Metric          `json:"charges"`
+	Payments                   Metric          `json:"payments"`
+	RVUs                       Metric          `json:"rvus"`
+	Payroll                    Metric          `json:"payroll"`
+	Adjustments                Metric          `json:"adjustments"`
+	OperatingProfit            Metric          `json:"operatingProfit"`
+	RvuPerPatient              Metric          `json:"rvuPerPatient"`
+	ChargePerPatient           Metric          `json:"chargePerPatient"`
+	PaymentPercentOfCharges    Metric          `json:"paymentPercentOfCharges"`
+	AverageReceiptsPerPatient  Metric          `json:"averageReceiptsPerPatient"`
+	AdjustmentPercentOfCharges Metric          `json:"adjustmentPercentOfCharges"`
 }
 
 // CptCodeMetric represents a CPT code's metrics.

@@ -48,11 +48,29 @@ func loadStateDivisionMapping(path string) (map[string]LocationMapping, error) {
 }
 
 func aggregateMetrics(charges, collections, visits, payroll, opm []float64, codes map[string][]float64) NodeData {
+	// Meta-calculations
+	chargePerPatientValues := make([]float64, 12)
+	paymentPercentOfChargesValues := make([]float64, 12)
+	averageReceiptsPerPatientValues := make([]float64, 12)
+
+	for i := 0; i < 12; i++ {
+		if visits[i] > 0 {
+			chargePerPatientValues[i] = charges[i] / visits[i]
+			averageReceiptsPerPatientValues[i] = collections[i] / visits[i]
+		}
+		if charges[i] > 0 {
+			paymentPercentOfChargesValues[i] = (collections[i] / charges[i]) * 100
+		}
+	}
 	chargesTotal := 0.0
 	collectionsTotal := 0.0
 	visitsTotal := 0.0
 	payrollTotal := 0.0
 	opmTotal := 0.0
+
+	chargePerPatientTotal := 0.0
+	paymentPercentOfChargesTotal := 0.0
+	averageReceiptsPerPatientTotal := 0.0
 
 	for i := 0; i < 12; i++ {
 		chargesTotal += charges[i]
@@ -60,6 +78,14 @@ func aggregateMetrics(charges, collections, visits, payroll, opm []float64, code
 		visitsTotal += visits[i]
 		payrollTotal += payroll[i]
 		opmTotal += opm[i]
+	}
+
+	if visitsTotal > 0 {
+		chargePerPatientTotal = chargesTotal / visitsTotal
+		averageReceiptsPerPatientTotal = collectionsTotal / visitsTotal
+	}
+	if chargesTotal > 0 {
+		paymentPercentOfChargesTotal = (collectionsTotal / chargesTotal) * 100
 	}
 
 	totalVisitsByMonth := make([]float64, 12)
@@ -120,12 +146,7 @@ func aggregateMetrics(charges, collections, visits, payroll, opm []float64, code
 			Total:  collectionsTotal,
 			Coding: "-",
 		},
-		RVUs: Metric{
-			Label:  "RVUs",
-			Values: make([]float64, 12),
-			Total:  0,
-			Coding: "-",
-		},
+
 		Payroll: Metric{
 			Label:  "Payroll",
 			Values: payroll,
@@ -136,6 +157,36 @@ func aggregateMetrics(charges, collections, visits, payroll, opm []float64, code
 			Label:  "Operating Profit Margin",
 			Values: opm,
 			Total:  opmTotal,
+			Coding: "-",
+		},
+		RvuPerPatient: Metric{
+			Label:  "RVUs per Patient",
+			Values: []float64{},
+			Total:  0,
+			Coding: "-",
+		},
+		ChargePerPatient: Metric{
+			Label:  "Charges per Patient",
+			Values: chargePerPatientValues,
+			Total:  chargePerPatientTotal,
+			Coding: "-",
+		},
+		PaymentPercentOfCharges: Metric{
+			Label:  "Payment % of Charges",
+			Values: paymentPercentOfChargesValues,
+			Total:  paymentPercentOfChargesTotal,
+			Coding: "-",
+		},
+		AverageReceiptsPerPatient: Metric{
+			Label:  "Average Receipts per Patient",
+			Values: averageReceiptsPerPatientValues,
+			Total:  averageReceiptsPerPatientTotal,
+			Coding: "-",
+		},
+		AdjustmentPercentOfCharges: Metric{
+			Label:  "Adjustments % of Charges",
+			Values: []float64{},
+			Total:  0,
 			Coding: "-",
 		},
 	}
@@ -214,14 +265,13 @@ func uHealthTransform() ([]byte, error) {
 	}
 
 	// Match provider names between Athelas system and ADP payroll system
-	uniqueProviders := make([]string, 0, len(mergedProviderFacilities))
+	uniqueAthelasProviders := make([]string, 0, len(mergedProviderFacilities))
 
 	for provider := range mergedProviderFacilities {
-		uniqueProviders = append(uniqueProviders, provider)
+		uniqueAthelasProviders = append(uniqueAthelasProviders, provider)
 	}
 
-	namesMapping := MatchNames(uniqueProviders, uniqueADPProviderNames)
-	fmt.Println(namesMapping)
+	namesMapping := MatchNames(uniqueAthelasProviders, uniqueADPProviderNames)
 
 	// Process each month's data
 	for _, month := range months {
@@ -399,6 +449,34 @@ func uHealthTransform() ([]byte, error) {
 				OPMTotal += v
 			}
 
+			// Meta-calculations for provider
+			chargePerPatientValues := make([]float64, 12)
+			paymentPercentOfChargesValues := make([]float64, 12)
+			averageReceiptsPerPatientValues := make([]float64, 12)
+
+			for i := 0; i < 12; i++ {
+				if visitsValues[i] > 0 {
+					chargePerPatientValues[i] = chargesValues[i] / visitsValues[i]
+					averageReceiptsPerPatientValues[i] = collectionsValues[i] / visitsValues[i]
+				}
+				if chargesValues[i] > 0 {
+					paymentPercentOfChargesValues[i] = (collectionsValues[i] / chargesValues[i]) * 100
+				}
+			}
+
+			chargePerPatientTotal := 0.0
+			if visitsTotal > 0 {
+				chargePerPatientTotal = chargesTotal / visitsTotal
+			}
+			paymentPercentOfChargesTotal := 0.0
+			if chargesTotal > 0 {
+				paymentPercentOfChargesTotal = (collectionsTotal / chargesTotal) * 100
+			}
+			averageReceiptsPerPatientTotal := 0.0
+			if visitsTotal > 0 {
+				averageReceiptsPerPatientTotal = collectionsTotal / visitsTotal
+			}
+
 			// Calculate total visits across all CPT codes
 			totalVisitsByMonth := make([]float64, 12)
 			totalVisitsSum := 0.0
@@ -459,12 +537,7 @@ func uHealthTransform() ([]byte, error) {
 					Total:  collectionsTotal,
 					Coding: "-",
 				},
-				RVUs: Metric{
-					Label:  "RVUs",
-					Values: make([]float64, 12),
-					Total:  0,
-					Coding: "-",
-				},
+
 				Payroll: Metric{
 					Label:  "Payroll",
 					Values: payrollValues,
@@ -475,6 +548,36 @@ func uHealthTransform() ([]byte, error) {
 					Label:  "Operating Profit Margin",
 					Values: OPMValues,
 					Total:  OPMTotal,
+					Coding: "-",
+				},
+				RvuPerPatient: Metric{
+					Label:  "RVUs per Patient",
+					Values: []float64{},
+					Total:  0,
+					Coding: "-",
+				},
+				ChargePerPatient: Metric{
+					Label:  "Charges per Patient",
+					Values: chargePerPatientValues,
+					Total:  chargePerPatientTotal,
+					Coding: "-",
+				},
+				PaymentPercentOfCharges: Metric{
+					Label:  "Payment % of Charges",
+					Values: paymentPercentOfChargesValues,
+					Total:  paymentPercentOfChargesTotal,
+					Coding: "-",
+				},
+				AverageReceiptsPerPatient: Metric{
+					Label:  "Average Receipts per Patient",
+					Values: averageReceiptsPerPatientValues,
+					Total:  averageReceiptsPerPatientTotal,
+					Coding: "-",
+				},
+				AdjustmentPercentOfCharges: Metric{
+					Label:  "Adjustments % of Charges",
+					Values: []float64{},
+					Total:  0,
 					Coding: "-",
 				},
 			}
@@ -547,6 +650,34 @@ func uHealthTransform() ([]byte, error) {
 			facilityOPMTotal += facilityOPMValues[i]
 		}
 
+		// Meta-calculations for facility
+		facilityChargePerPatientValues := make([]float64, 12)
+		facilityPaymentPercentOfChargesValues := make([]float64, 12)
+		facilityAverageReceiptsPerPatientValues := make([]float64, 12)
+
+		for i := 0; i < 12; i++ {
+			if facilityVisitsValues[i] > 0 {
+				facilityChargePerPatientValues[i] = facilityChargesValues[i] / facilityVisitsValues[i]
+				facilityAverageReceiptsPerPatientValues[i] = facilityCollectionsValues[i] / facilityVisitsValues[i]
+			}
+			if facilityChargesValues[i] > 0 {
+				facilityPaymentPercentOfChargesValues[i] = (facilityCollectionsValues[i] / facilityChargesValues[i]) * 100
+			}
+		}
+
+		facilityChargePerPatientTotal := 0.0
+		if facilityVisitsTotal > 0 {
+			facilityChargePerPatientTotal = facilityChargesTotal / facilityVisitsTotal
+		}
+		facilityPaymentPercentOfChargesTotal := 0.0
+		if facilityChargesTotal > 0 {
+			facilityPaymentPercentOfChargesTotal = (facilityCollectionsTotal / facilityChargesTotal) * 100
+		}
+		facilityAverageReceiptsPerPatientTotal := 0.0
+		if facilityVisitsTotal > 0 {
+			facilityAverageReceiptsPerPatientTotal = facilityCollectionsTotal / facilityVisitsTotal
+		}
+
 		// Add CPT code metrics first
 		totalVisitsByMonth := make([]float64, 12)
 		totalVisitsSum := 0.0
@@ -606,12 +737,6 @@ func uHealthTransform() ([]byte, error) {
 				Total:  facilityCollectionsTotal,
 				Coding: "-",
 			},
-			RVUs: Metric{
-				Label:  "RVUs",
-				Values: make([]float64, 12),
-				Total:  0,
-				Coding: "-",
-			},
 			Payroll: Metric{
 				Label:  "Payroll",
 				Values: facilityPayrollValues,
@@ -622,6 +747,36 @@ func uHealthTransform() ([]byte, error) {
 				Label:  "Operating Profit Margin",
 				Values: facilityOPMValues,
 				Total:  facilityOPMTotal,
+				Coding: "-",
+			},
+			RvuPerPatient: Metric{
+				Label:  "RVUs per Patient",
+				Values: []float64{},
+				Total:  0,
+				Coding: "-",
+			},
+			ChargePerPatient: Metric{
+				Label:  "Charges per Patient",
+				Values: facilityChargePerPatientValues,
+				Total:  facilityChargePerPatientTotal,
+				Coding: "-",
+			},
+			PaymentPercentOfCharges: Metric{
+				Label:  "Payment % of Charges",
+				Values: facilityPaymentPercentOfChargesValues,
+				Total:  facilityPaymentPercentOfChargesTotal,
+				Coding: "-",
+			},
+			AverageReceiptsPerPatient: Metric{
+				Label:  "Average Receipts per Patient",
+				Values: facilityAverageReceiptsPerPatientValues,
+				Total:  facilityAverageReceiptsPerPatientTotal,
+				Coding: "-",
+			},
+			AdjustmentPercentOfCharges: Metric{
+				Label:  "Adjustments % of Charges",
+				Values: []float64{},
+				Total:  0,
 				Coding: "-",
 			},
 		}
@@ -806,6 +961,34 @@ func uHealthTransform() ([]byte, error) {
 		allProvidersOPMTotal += allProvidersOPMValues[i]
 	}
 
+	// Meta-calculations for all providers
+	allProvidersChargePerPatientValues := make([]float64, 12)
+	allProvidersPaymentPercentOfChargesValues := make([]float64, 12)
+	allProvidersAverageReceiptsPerPatientValues := make([]float64, 12)
+
+	for i := 0; i < 12; i++ {
+		if allProvidersVisitsValues[i] > 0 {
+			allProvidersChargePerPatientValues[i] = allProvidersChargesValues[i] / allProvidersVisitsValues[i]
+			allProvidersAverageReceiptsPerPatientValues[i] = allProvidersCollectionsValues[i] / allProvidersVisitsValues[i]
+		}
+		if allProvidersChargesValues[i] > 0 {
+			allProvidersPaymentPercentOfChargesValues[i] = (allProvidersCollectionsValues[i] / allProvidersChargesValues[i]) * 100
+		}
+	}
+
+	allProvidersChargePerPatientTotal := 0.0
+	if allProvidersVisitsTotal > 0 {
+		allProvidersChargePerPatientTotal = allProvidersChargesTotal / allProvidersVisitsTotal
+	}
+	allProvidersPaymentPercentOfChargesTotal := 0.0
+	if allProvidersChargesTotal > 0 {
+		allProvidersPaymentPercentOfChargesTotal = (allProvidersCollectionsTotal / allProvidersChargesTotal) * 100
+	}
+	allProvidersAverageReceiptsPerPatientTotal := 0.0
+	if allProvidersVisitsTotal > 0 {
+		allProvidersAverageReceiptsPerPatientTotal = allProvidersCollectionsTotal / allProvidersVisitsTotal
+	}
+
 	// Calculate total visits for CPT codes for percentage calculation
 	var allProvidersTotalVisitsSum float64
 	for _, values := range allProvidersCodeValues {
@@ -865,12 +1048,6 @@ func uHealthTransform() ([]byte, error) {
 			Total:  allProvidersCollectionsTotal,
 			Coding: "-",
 		},
-		RVUs: Metric{
-			Label:  "RVUs",
-			Values: make([]float64, 12),
-			Total:  0,
-			Coding: "-",
-		},
 		Payroll: Metric{
 			Label:  "Payroll",
 			Values: allProvidersPayrollValues,
@@ -881,6 +1058,36 @@ func uHealthTransform() ([]byte, error) {
 			Label:  "Operating Profit Margin",
 			Values: allProvidersOPMValues,
 			Total:  allProvidersOPMTotal,
+			Coding: "-",
+		},
+		RvuPerPatient: Metric{
+			Label:  "RVUs per Patient",
+			Values: []float64{},
+			Total:  0,
+			Coding: "-",
+		},
+		ChargePerPatient: Metric{
+			Label:  "Charges per Patient",
+			Values: allProvidersChargePerPatientValues,
+			Total:  allProvidersChargePerPatientTotal,
+			Coding: "-",
+		},
+		PaymentPercentOfCharges: Metric{
+			Label:  "Payment % of Charges",
+			Values: allProvidersPaymentPercentOfChargesValues,
+			Total:  allProvidersPaymentPercentOfChargesTotal,
+			Coding: "-",
+		},
+		AverageReceiptsPerPatient: Metric{
+			Label:  "Average Receipts per Patient",
+			Values: allProvidersAverageReceiptsPerPatientValues,
+			Total:  allProvidersAverageReceiptsPerPatientTotal,
+			Coding: "-",
+		},
+		AdjustmentPercentOfCharges: Metric{
+			Label:  "Adjustments % of Charges",
+			Values: []float64{},
+			Total:  0,
 			Coding: "-",
 		},
 	}

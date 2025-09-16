@@ -45,7 +45,7 @@
 <div class="min-h-screen bg-gray-100 py-12">
   <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
     {#if showSuccessToast}
-      <div class="fixed top-5 right-5 z-50">
+      <div class="fixed top-5 right-5">
         <Toast transition={fly} params={{ x: 200 }} color="green" class="mb-4">
           {#snippet icon()}
             <CheckCircleSolid class="h-6 w-6" />
@@ -56,7 +56,7 @@
     {/if}
 
     {#if showErrorToast}
-      <div class="fixed top-5 right-5 z-50">
+      <div class="fixed top-5 right-5">
         <Toast transition={fly} params={{ x: 200 }} color="red" class="mb-4">
           {#snippet icon()}
             <CheckCircleSolid class="h-6 w-6" />

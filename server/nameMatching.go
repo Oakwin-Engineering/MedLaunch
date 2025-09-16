@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -9,17 +10,25 @@ import (
 )
 
 // Name represents a parsed name with first, last, and middle parts.
-
 type Name struct {
 	First  string
 	Last   string
 	Middle string
 }
 
+// Match represents a potential match between two names, with a similarity score.
+type Match struct {
+	Name1     string
+	Name2     string
+	Score     float64
+	JaroScore float64
+}
+
 // parseName parses a string into a Name struct.
 // It handles formats like "Last, First Middle" and "First Middle Last".
 func parseName(fullName string) Name {
 	fullName = strings.TrimSpace(fullName)
+
 	if strings.Contains(fullName, ",") {
 		parts := strings.Split(fullName, ",")
 		lastName := strings.TrimSpace(parts[0])
@@ -46,14 +55,6 @@ func parseName(fullName string) Name {
 	}
 }
 
-// Match represents a potential match between two names, with a similarity score.
-type Match struct {
-	Name1     string
-	Name2     string
-	Score     float64
-	JaroScore float64
-}
-
 // MatchNames performs fuzzy matching between two lists of names.
 func MatchNames(list1, list2 []string) map[string]string {
 	var potentialMatches []Match
@@ -70,7 +71,7 @@ func MatchNames(list1, list2 []string) map[string]string {
 
 			jaroScore := strutil.Similarity(name1.First+" "+name1.Last, name2.First+" "+name2.Last, jaro)
 
-			if jaroScore > 0.8 {
+			if jaroScore >= 0.8 {
 				match := Match{
 					Name1:     name1Str,
 					Name2:     name2Str,
@@ -84,6 +85,7 @@ func MatchNames(list1, list2 []string) map[string]string {
 		}
 
 		if bestMatch != nil {
+
 			potentialMatches = append(potentialMatches, *bestMatch)
 		}
 	}
@@ -98,6 +100,9 @@ func MatchNames(list1, list2 []string) map[string]string {
 	used := make(map[string]bool)
 	for _, match := range potentialMatches {
 		if !used[match.Name1] && !used[match.Name2] {
+			if LOG_MODE == "debug" {
+				fmt.Printf("Match Found: %s -> %s (Jaro Score: %.4f)\n", match.Name1, match.Name2, match.JaroScore)
+			}
 			matches[match.Name1] = match.Name2
 			used[match.Name1] = true
 			used[match.Name2] = true

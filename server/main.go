@@ -7,12 +7,15 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
+
+var LOG_MODE string = os.Getenv("LOG_MODE")
 
 func main() {
 	// Load environment variables
@@ -116,6 +119,7 @@ func triggerETLTest(w http.ResponseWriter, r *http.Request) {
 
 	// Step 2: Transform data
 	jsonData, err := transformData(customerId)
+
 	if err != nil {
 		log.Printf("Error transforming data: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)

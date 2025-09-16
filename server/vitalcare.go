@@ -59,12 +59,12 @@ func vitalCareTransform() ([]byte, error) {
 	}
 
 	namesMapping := MatchNames(uniqueProviders, uniquePaylocityProviders)
-	fmt.Println(namesMapping)
 
 	var items []*Node
 
 	// Create a reverse map for provider to locations
 	providerToLocationMap := make(map[string][]string)
+
 	for loc, provs := range locationProviderMap {
 		for _, p := range provs {
 			providerToLocationMap[p] = append(providerToLocationMap[p], loc)
@@ -231,6 +231,10 @@ func vitalCareTransform() ([]byte, error) {
 			for _, v := range providerPaymentsValues {
 				providerPaymentsTotal += v
 			}
+			providerAdjustmentsTotal := 0.0
+			for _, v := range providerAdjustmentsValues {
+				providerAdjustmentsTotal += v
+			}
 			providerRvusTotal := 0.0
 			for _, v := range providerRvusValues {
 				providerRvusTotal += v
@@ -246,6 +250,46 @@ func vitalCareTransform() ([]byte, error) {
 			providerOPMTotal := 0.0
 			for _, v := range providerOPMValues {
 				providerOPMTotal += v
+			}
+
+			// Meta-calculations for provider
+			providerRvuPerPatientValues := make([]float64, 12)
+			providerChargePerPatientValues := make([]float64, 12)
+			providerPaymentPercentOfChargesValues := make([]float64, 12)
+			providerAverageReceiptsPerPatientValues := make([]float64, 12)
+			providerAdjustmentPercentOfChargesValues := make([]float64, 12)
+
+			for i := 0; i < 12; i++ {
+				if providerTotalVisitsValues[i] > 0 {
+					providerRvuPerPatientValues[i] = providerRvusValues[i] / providerTotalVisitsValues[i]
+					providerChargePerPatientValues[i] = providerChargesValues[i] / providerTotalVisitsValues[i]
+					providerAverageReceiptsPerPatientValues[i] = providerPaymentsValues[i] / providerTotalVisitsValues[i]
+				}
+				if providerChargesValues[i] > 0 {
+					providerPaymentPercentOfChargesValues[i] = (providerPaymentsValues[i] / providerChargesValues[i]) * 100
+					providerAdjustmentPercentOfChargesValues[i] = (providerAdjustmentsValues[i] / providerChargesValues[i]) * 100
+				}
+			}
+
+			providerRvuPerPatientTotal := 0.0
+			if providerTotalVisitsTotal > 0 {
+				providerRvuPerPatientTotal = providerRvusTotal / providerTotalVisitsTotal
+			}
+			providerChargePerPatientTotal := 0.0
+			if providerTotalVisitsTotal > 0 {
+				providerChargePerPatientTotal = providerChargesTotal / providerTotalVisitsTotal
+			}
+			providerPaymentPercentOfChargesTotal := 0.0
+			if providerChargesTotal > 0 {
+				providerPaymentPercentOfChargesTotal = (providerPaymentsTotal / providerChargesTotal) * 100
+			}
+			providerAverageReceiptsPerPatientTotal := 0.0
+			if providerTotalVisitsTotal > 0 {
+				providerAverageReceiptsPerPatientTotal = providerPaymentsTotal / providerTotalVisitsTotal
+			}
+			providerAdjustmentPercentOfChargesTotal := 0.0
+			if providerChargesTotal > 0 {
+				providerAdjustmentPercentOfChargesTotal = (providerAdjustmentsTotal / providerChargesTotal) * 100
 			}
 
 			providerCptUnitsTotalSum := 0.0
@@ -304,6 +348,12 @@ func vitalCareTransform() ([]byte, error) {
 					Total:  providerPaymentsTotal,
 					Coding: "-",
 				},
+				Adjustments: Metric{
+					Label:  "Adjustments",
+					Values: providerAdjustmentsValues,
+					Total:  providerAdjustmentsTotal,
+					Coding: "-",
+				},
 				RVUs: Metric{
 					Label:  "RVUs",
 					Values: providerRvusValues,
@@ -322,6 +372,36 @@ func vitalCareTransform() ([]byte, error) {
 					Total:  providerOPMTotal,
 					Coding: "-",
 				},
+				RvuPerPatient: Metric{
+					Label:  "RVUs per Patient",
+					Values: providerRvuPerPatientValues,
+					Total:  providerRvuPerPatientTotal,
+					Coding: "-",
+				},
+				ChargePerPatient: Metric{
+					Label:  "Charges per Patient",
+					Values: providerChargePerPatientValues,
+					Total:  providerChargePerPatientTotal,
+					Coding: "-",
+				},
+				PaymentPercentOfCharges: Metric{
+					Label:  "Payment % of Charges",
+					Values: providerPaymentPercentOfChargesValues,
+					Total:  providerPaymentPercentOfChargesTotal,
+					Coding: "-",
+				},
+				AverageReceiptsPerPatient: Metric{
+					Label:  "Average Receipts per Patient",
+					Values: providerAverageReceiptsPerPatientValues,
+					Total:  providerAverageReceiptsPerPatientTotal,
+					Coding: "-",
+				},
+				AdjustmentPercentOfCharges: Metric{
+					Label:  "Adjustments % of Charges",
+					Values: providerAdjustmentPercentOfChargesValues,
+					Total:  providerAdjustmentPercentOfChargesTotal,
+					Coding: "-",
+				},
 			}
 			locationNode.Children = append(locationNode.Children, providerNode)
 		}
@@ -334,6 +414,10 @@ func vitalCareTransform() ([]byte, error) {
 		locationPaymentsTotal := 0.0
 		for _, v := range locationPaymentsValues {
 			locationPaymentsTotal += v
+		}
+		locationAdjustmentsTotal := 0.0
+		for _, v := range locationAdjustmentsValues {
+			locationAdjustmentsTotal += v
 		}
 		locationRvusTotal := 0.0
 		for _, v := range locationRvusValues {
@@ -359,6 +443,46 @@ func vitalCareTransform() ([]byte, error) {
 		locationOPMTotal := 0.0
 		for _, v := range locationOPMValues {
 			locationOPMTotal += v
+		}
+
+		// Meta-calculations for location
+		locationRvuPerPatientValues := make([]float64, 12)
+		locationChargePerPatientValues := make([]float64, 12)
+		locationPaymentPercentOfChargesValues := make([]float64, 12)
+		locationAverageReceiptsPerPatientValues := make([]float64, 12)
+		locationAdjustmentPercentOfChargesValues := make([]float64, 12)
+
+		for i := 0; i < 12; i++ {
+			if locationTotalVisitsValues[i] > 0 {
+				locationRvuPerPatientValues[i] = locationRvusValues[i] / locationTotalVisitsValues[i]
+				locationChargePerPatientValues[i] = locationChargesValues[i] / locationTotalVisitsValues[i]
+				locationAverageReceiptsPerPatientValues[i] = locationPaymentsValues[i] / locationTotalVisitsValues[i]
+			}
+			if locationChargesValues[i] > 0 {
+				locationPaymentPercentOfChargesValues[i] = (locationPaymentsValues[i] / locationChargesValues[i]) * 100
+				locationAdjustmentPercentOfChargesValues[i] = (locationAdjustmentsValues[i] / locationChargesValues[i]) * 100
+			}
+		}
+
+		locationRvuPerPatientTotal := 0.0
+		if locationTotalVisitsTotal > 0 {
+			locationRvuPerPatientTotal = locationRvusTotal / locationTotalVisitsTotal
+		}
+		locationChargePerPatientTotal := 0.0
+		if locationTotalVisitsTotal > 0 {
+			locationChargePerPatientTotal = locationChargesTotal / locationTotalVisitsTotal
+		}
+		locationPaymentPercentOfChargesTotal := 0.0
+		if locationChargesTotal > 0 {
+			locationPaymentPercentOfChargesTotal = (locationPaymentsTotal / locationChargesTotal) * 100
+		}
+		locationAverageReceiptsPerPatientTotal := 0.0
+		if locationTotalVisitsTotal > 0 {
+			locationAverageReceiptsPerPatientTotal = locationPaymentsTotal / locationTotalVisitsTotal
+		}
+		locationAdjustmentPercentOfChargesTotal := 0.0
+		if locationChargesTotal > 0 {
+			locationAdjustmentPercentOfChargesTotal = (locationAdjustmentsTotal / locationChargesTotal) * 100
 		}
 
 		locationCptUnitsTotalSum := 0.0
@@ -417,6 +541,12 @@ func vitalCareTransform() ([]byte, error) {
 				Total:  locationPaymentsTotal,
 				Coding: "-",
 			},
+			Adjustments: Metric{
+				Label:  "Adjustments",
+				Values: locationAdjustmentsValues,
+				Total:  locationAdjustmentsTotal,
+				Coding: "-",
+			},
 			RVUs: Metric{
 				Label:  "RVUs",
 				Values: locationRvusValues,
@@ -433,6 +563,36 @@ func vitalCareTransform() ([]byte, error) {
 				Label:  "Operating Profit Margin",
 				Values: locationOPMValues,
 				Total:  locationOPMTotal,
+				Coding: "-",
+			},
+			RvuPerPatient: Metric{
+				Label:  "RVUs per Patient",
+				Values: locationRvuPerPatientValues,
+				Total:  locationRvuPerPatientTotal,
+				Coding: "-",
+			},
+			ChargePerPatient: Metric{
+				Label:  "Charges per Patient",
+				Values: locationChargePerPatientValues,
+				Total:  locationChargePerPatientTotal,
+				Coding: "-",
+			},
+			PaymentPercentOfCharges: Metric{
+				Label:  "Payment % of Charges",
+				Values: locationPaymentPercentOfChargesValues,
+				Total:  locationPaymentPercentOfChargesTotal,
+				Coding: "-",
+			},
+			AverageReceiptsPerPatient: Metric{
+				Label:  "Average Receipts per Patient",
+				Values: locationAverageReceiptsPerPatientValues,
+				Total:  locationAverageReceiptsPerPatientTotal,
+				Coding: "-",
+			},
+			AdjustmentPercentOfCharges: Metric{
+				Label:  "Adjustments % of Charges",
+				Values: locationAdjustmentPercentOfChargesValues,
+				Total:  locationAdjustmentPercentOfChargesTotal,
 				Coding: "-",
 			},
 		}
@@ -545,6 +705,10 @@ func vitalCareTransform() ([]byte, error) {
 	for _, v := range allProvidersPaymentsValues {
 		allProvidersPaymentsTotal += v
 	}
+	allProvidersAdjustmentsTotal := 0.0
+	for _, v := range allProvidersAdjustmentsValues {
+		allProvidersAdjustmentsTotal += v
+	}
 	allProvidersRvusTotal := 0.0
 	for _, v := range allProvidersRvusValues {
 		allProvidersRvusTotal += v
@@ -562,6 +726,46 @@ func vitalCareTransform() ([]byte, error) {
 	allProvidersOPMTotal := 0.0
 	for _, v := range allProvidersOPMValues {
 		allProvidersOPMTotal += v
+	}
+
+	// Meta-calculations for all providers
+	allProvidersRvuPerPatientValues := make([]float64, 12)
+	allProvidersChargePerPatientValues := make([]float64, 12)
+	allProvidersPaymentPercentOfChargesValues := make([]float64, 12)
+	allProvidersAverageReceiptsPerPatientValues := make([]float64, 12)
+	allProvidersAdjustmentPercentOfChargesValues := make([]float64, 12)
+
+	for i := 0; i < 12; i++ {
+		if allProvidersTotalVisitsValues[i] > 0 {
+			allProvidersRvuPerPatientValues[i] = allProvidersRvusValues[i] / allProvidersTotalVisitsValues[i]
+			allProvidersChargePerPatientValues[i] = allProvidersChargesValues[i] / allProvidersTotalVisitsValues[i]
+			allProvidersAverageReceiptsPerPatientValues[i] = allProvidersPaymentsValues[i] / allProvidersTotalVisitsValues[i]
+		}
+		if allProvidersChargesValues[i] > 0 {
+			allProvidersPaymentPercentOfChargesValues[i] = (allProvidersPaymentsValues[i] / allProvidersChargesValues[i]) * 100
+			allProvidersAdjustmentPercentOfChargesValues[i] = (allProvidersAdjustmentsValues[i] / allProvidersChargesValues[i]) * 100
+		}
+	}
+
+	allProvidersRvuPerPatientTotal := 0.0
+	if allProvidersTotalVisitsTotal > 0 {
+		allProvidersRvuPerPatientTotal = allProvidersRvusTotal / allProvidersTotalVisitsTotal
+	}
+	allProvidersChargePerPatientTotal := 0.0
+	if allProvidersTotalVisitsTotal > 0 {
+		allProvidersChargePerPatientTotal = allProvidersChargesTotal / allProvidersTotalVisitsTotal
+	}
+	allProvidersPaymentPercentOfChargesTotal := 0.0
+	if allProvidersChargesTotal > 0 {
+		allProvidersPaymentPercentOfChargesTotal = (allProvidersPaymentsTotal / allProvidersChargesTotal) * 100
+	}
+	allProvidersAverageReceiptsPerPatientTotal := 0.0
+	if allProvidersTotalVisitsTotal > 0 {
+		allProvidersAverageReceiptsPerPatientTotal = allProvidersPaymentsTotal / allProvidersTotalVisitsTotal
+	}
+	allProvidersAdjustmentPercentOfChargesTotal := 0.0
+	if allProvidersChargesTotal > 0 {
+		allProvidersAdjustmentPercentOfChargesTotal = (allProvidersAdjustmentsTotal / allProvidersChargesTotal) * 100
 	}
 
 	allProvidersCptUnitsTotalSum := 0.0
@@ -620,6 +824,12 @@ func vitalCareTransform() ([]byte, error) {
 			Total:  allProvidersPaymentsTotal,
 			Coding: "-",
 		},
+		Adjustments: Metric{
+			Label:  "Adjustments",
+			Values: allProvidersAdjustmentsValues,
+			Total:  allProvidersAdjustmentsTotal,
+			Coding: "-",
+		},
 		RVUs: Metric{
 			Label:  "RVUs",
 			Values: allProvidersRvusValues,
@@ -636,6 +846,36 @@ func vitalCareTransform() ([]byte, error) {
 			Label:  "Operating Profit Margin",
 			Values: allProvidersOPMValues,
 			Total:  allProvidersOPMTotal,
+			Coding: "-",
+		},
+		RvuPerPatient: Metric{
+			Label:  "RVUs per Patient",
+			Values: allProvidersRvuPerPatientValues,
+			Total:  allProvidersRvuPerPatientTotal,
+			Coding: "-",
+		},
+		ChargePerPatient: Metric{
+			Label:  "Charges per Patient",
+			Values: allProvidersChargePerPatientValues,
+			Total:  allProvidersChargePerPatientTotal,
+			Coding: "-",
+		},
+		PaymentPercentOfCharges: Metric{
+			Label:  "Payment % of Charges",
+			Values: allProvidersPaymentPercentOfChargesValues,
+			Total:  allProvidersPaymentPercentOfChargesTotal,
+			Coding: "-",
+		},
+		AverageReceiptsPerPatient: Metric{
+			Label:  "Average Receipts per Patient",
+			Values: allProvidersAverageReceiptsPerPatientValues,
+			Total:  allProvidersAverageReceiptsPerPatientTotal,
+			Coding: "-",
+		},
+		AdjustmentPercentOfCharges: Metric{
+			Label:  "Adjustments % of Charges",
+			Values: allProvidersAdjustmentPercentOfChargesValues,
+			Total:  allProvidersAdjustmentPercentOfChargesTotal,
 			Coding: "-",
 		},
 	}

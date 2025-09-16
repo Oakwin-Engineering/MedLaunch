@@ -28,7 +28,12 @@ func downloadBucket(bucket string) error {
 
 	const localDestDir = "data"
 
-	// Create base directory if it doesn't exist
+	// Remove the data directory to ensure a clean download
+	if err := os.RemoveAll(localDestDir); err != nil {
+		return fmt.Errorf("failed to remove existing data directory: %w", err)
+	}
+
+	// Create base directory
 	if err := os.MkdirAll(localDestDir, 0755); err != nil {
 		return fmt.Errorf("os.MkdirAll for %s: %w", localDestDir, err)
 	}

@@ -25,10 +25,11 @@
 
   const IconComponent = $derived(iconMap[node.iconType]);
   const isParent = $derived(node.children && node.children.length > 0);
+  const isSelected = $derived($selectedNode && $selectedNode.id === node.id);
 </script>
 
 <div
-  class="node-item flex cursor-pointer items-center rounded-lg p-2 text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+  class="node-item flex cursor-pointer items-center rounded-lg p-2 text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700 {isSelected ? 'bg-gray-200 dark:bg-gray-600' : ''}"
   style="padding-left: {depth * 1.5 + 0.5}rem;"
   onclick={handleClick}
   onkeydown={handleClick}
@@ -43,7 +44,7 @@
   <span class="ml-3 flex-1">{node.label}</span>
   {#if isParent}
     <ChevronDownOutline
-      class="h-4 w-4 transform transition-transform duration-200 {isOpen
+      class="h-6 w-6 transform transition-transform duration-200 {isOpen
         ? 'rotate-180'
         : ''}"
     />

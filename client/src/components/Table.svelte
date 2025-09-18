@@ -42,10 +42,14 @@
             <TableBodyRow>
               {#if i === 0}
                 <TableBodyCell
-                  class="p-0  bg-yellow-100 ibold"
+                  class="p-0 bg-yellow-100 ibold relative"
                   rowspan={data.cptCodes.length}
                 >
-                  <div class="-rotate-90">CPT Codes</div>
+                  <div
+                    class="absolute inset-0 flex items-center justify-center"
+                  >
+                    <span class="-rotate-90">CPT Codes</span>
+                  </div>
                 </TableBodyCell>
               {/if}
               <TableBodyCell class="py-2 px-3 ibold">{row.code}</TableBodyCell>

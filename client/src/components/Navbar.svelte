@@ -2,41 +2,22 @@
   import { Button } from "flowbite-svelte";
   import { FilePdfOutline } from "flowbite-svelte-icons";
   import { Spinner } from "flowbite-svelte";
-  import { env } from "$env/dynamic/public";
   import { customers } from "../constants";
 
-  const apiUrl = env.PUBLIC_API_URL;
   let { customerID } = $props();
 
   let loading = $state(false);
 
-  // Ugly solution to trigger a download for the user, initially went with a simple form submit
-  // but that way it is harder to intercept track loading to put a spinner.
   async function handlePrint(e: Event) {
     e.preventDefault();
     loading = true;
 
     try {
-      const res = await fetch(`${apiUrl}/print-pdf/${customerID}`, {
-        method: "POST",
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch PDF");
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      // Trigger download
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${customerID}-report.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // Trigger the browser print dialog
+      window.print();
     } catch (err) {
       console.error(err);
-      alert("Failed to generate PDF");
+      alert("Failed to trigger print");
     } finally {
       loading = false;
     }
@@ -61,10 +42,36 @@
     <Button type="submit" color="blue" disabled={loading}>
       {#if loading}
         <Spinner size="6" class="mr-2" />
-        Generating PDF...
+        Preparing Print...
       {:else}
         <FilePdfOutline class="h-6 w-6 mr-1" /> Print
       {/if}
     </Button>
   </form>
 </nav>
+
+<style>
+  :global {
+    @media print {
+      @page {
+        size: A3 landscape; /* or landscape */
+      }
+
+      #table {
+        margin: 0px;
+      }
+
+      /* Hide nav and footer while printing */
+      nav,
+      footer,
+      aside {
+        display: none !important;
+      }
+
+      /* Adjust scaling, fonts, etc. */
+      body {
+        font-size: 12pt;
+      }
+    }
+  }
+</style>

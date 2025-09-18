@@ -15,7 +15,7 @@
 
 <div class="flex mt-16">
   <Sidebar tableData={data.tableData} />
-  <div class="flex-1 p-4 ml-64 border-box w-full">
+  <div id="table" class="flex-1 p-4 ml-64 border-box w-full">
     {#if $selectedNode}
       <Table tableData={$selectedNode} />
     {/if}

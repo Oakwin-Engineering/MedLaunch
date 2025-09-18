@@ -19,16 +19,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server
 # Use a minimal base image for the final stage
 FROM --platform=linux/amd64 alpine:latest
 
-# Install ca-certificates + Chromium + dependencies for headless Chrome
+# Install only ca-certificates and bash (optional)
 RUN apk add --no-cache \
     ca-certificates \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ttf-freefont \
-    bash \
-    fontconfig
+    bash
 
 # Set the working directory
 WORKDIR /app
@@ -38,7 +32,6 @@ COPY --from=builder /app/server .
 
 # Set environment variables
 ENV PORT=8080
-ENV CHROME_PATH=/usr/bin/chromium-browser
 
 # Expose the port
 EXPOSE 8080

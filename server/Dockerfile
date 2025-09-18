@@ -13,15 +13,22 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server
 
 # Use a minimal base image for the final stage
 FROM --platform=linux/amd64 alpine:latest
 
-# Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates + Chromium + dependencies for headless Chrome
+RUN apk add --no-cache \
+    ca-certificates \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    bash \
+    fontconfig
 
 # Set the working directory
 WORKDIR /app
@@ -29,11 +36,9 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /app/server .
 
-# # Copy the static files
-# COPY --from=builder /app/out ./out
-
 # Set environment variables
 ENV PORT=8080
+ENV CHROME_PATH=/usr/bin/chromium-browser
 
 # Expose the port
 EXPOSE 8080

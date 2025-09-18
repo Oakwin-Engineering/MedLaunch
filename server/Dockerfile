@@ -1,5 +1,5 @@
 # Use the official Go image as a builder
-FROM --platform=linux/amd64 golang:1.24.4 AS builder
+FROM --platform=linux/amd64 golang:1.25.1 AS builder
 
 # Set the working directory
 WORKDIR /app

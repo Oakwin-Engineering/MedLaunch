@@ -67,9 +67,11 @@
       @page {
         size: A3 landscape;
       }
+
       #container {
         margin: 0px;
       }
+
       nav,
       footer,
       aside {

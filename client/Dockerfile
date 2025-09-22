@@ -7,7 +7,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 
-# Copy the source code and build
+# Copy environment file so build has PUBLIC_ vars
+COPY .env.prod .env
+
+# Copy source and build
 COPY . .
 RUN npm run build
 
@@ -16,8 +19,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Default env values (can be overridden at runtime with -e)
-ENV PUBLIC_API_URL="https://medlaunch-server-973560072485.us-central1.run.app"
+# Default env values (runtime override with -e)
 ENV PORT=8080
 
 # Copy only what is needed for runtime

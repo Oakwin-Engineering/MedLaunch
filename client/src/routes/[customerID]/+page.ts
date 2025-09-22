@@ -1,10 +1,8 @@
-import { env } from "$env/dynamic/public";
+import { PUBLIC_API_URL } from "$env/static/public";
 
 type Slug = {
   customerID: string;
 };
-
-const apiUrl = env.PUBLIC_API_URL;
 
 export const load = async ({ params }: { params: Slug }) => {
   const { customerID } = params;
@@ -17,7 +15,7 @@ export const load = async ({ params }: { params: Slug }) => {
   }
 
   try {
-    const res = await fetch(`${apiUrl}/table-data/${customerID}`);
+    const res = await fetch(`${PUBLIC_API_URL}/table-data/${customerID}`);
     if (!res.ok) {
       throw new Error(`Failed to fetch: ${res.statusText}`);
     }

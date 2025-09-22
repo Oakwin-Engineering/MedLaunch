@@ -2,17 +2,24 @@
   import { Search, Button, Dropdown, DropdownItem } from "flowbite-svelte";
   import { ChevronDownOutline } from "flowbite-svelte-icons";
   import SidebarNode from "./SidebarNode.svelte";
-  import { filterEntity } from "../utils/utils";
+  import { filterEntity, FilterMode } from "../utils/utils";
+  import { showRevisNetwork } from "../store";
 
-  const items = [{ label: "Location" }, { label: "Provider" }];
+  const items = [
+    { label: "Location", mode: FilterMode.LocationOnly },
+    { label: "Provider", mode: FilterMode.ProviderOnly },
+    { label: "Hierarchy", mode: FilterMode.Hierarchy },
+  ];
 
   let { tableData } = $props();
   let searchTerm = $state("");
-  let selectedCategory = $state("Location");
   let isOpen = $state(false);
+  // default to Location
+  let selectedCategory = $state(FilterMode.LocationOnly);
 
+  // filtered data reacts to changes in state
   let filteredData = $derived(
-    filterEntity(tableData, searchTerm, selectedCategory === "Provider")
+    filterEntity(tableData, searchTerm, selectedCategory)
   );
 </script>
 
@@ -27,13 +34,14 @@
           <ChevronDownOutline class="h-6 w-6" />
         </Button>
         <Dropdown bind:isOpen simple class="w-40 ">
-          {#each items as { label }}
+          {#each items as { label, mode }}
             <DropdownItem
               onclick={() => {
-                selectedCategory = label;
+                showRevisNetwork.set(mode === FilterMode.Hierarchy);
+                selectedCategory = mode; // use enum value here
                 isOpen = false;
               }}
-              class={`w-full ${selectedCategory === label ? "bg-blue-100 dark:bg-blue-600" : ""}`}
+              class={`w-full ${selectedCategory === mode ? "bg-blue-100 dark:bg-blue-600" : ""}`}
             >
               {label}
             </DropdownItem>

@@ -1,12 +1,19 @@
 <script lang="ts">
-  import SidebarNode from "./SidebarNode.svelte";
-  import { selectedNode } from "../store";
   import {
     UserSolid,
     BuildingSolid,
     MapPinSolid,
     ChevronDownOutline,
   } from "flowbite-svelte-icons";
+  import SidebarNode from "./SidebarNode.svelte";
+  import { selectedNode } from "../store";
+
+  const iconMap: Record<string, any> = {
+    clinic: BuildingSolid,
+    person: UserSolid,
+    division: MapPinSolid,
+    state: MapPinSolid,
+  };
 
   let { node, depth = 0 } = $props();
   let isOpen = $state(false);
@@ -16,20 +23,15 @@
     selectedNode.set(node);
   }
 
-  const iconMap: Record<string, any> = {
-    clinic: BuildingSolid,
-    person: UserSolid,
-    division: MapPinSolid,
-    state: MapPinSolid,
-  };
-
   const IconComponent = $derived(iconMap[node.iconType]);
   const isParent = $derived(node.children && node.children.length > 0);
   const isSelected = $derived($selectedNode && $selectedNode.id === node.id);
 </script>
 
 <div
-  class="node-item flex cursor-pointer items-center rounded-lg p-2 text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700 {isSelected ? 'bg-gray-200 dark:bg-gray-600' : ''}"
+  class="node-item flex cursor-pointer items-center rounded-lg p-2 text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700 {isSelected
+    ? 'bg-gray-200 dark:bg-gray-600'
+    : ''}"
   style="padding-left: {depth * 1.5 + 0.5}rem;"
   onclick={handleClick}
   onkeydown={handleClick}

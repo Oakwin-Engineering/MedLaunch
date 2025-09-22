@@ -1,24 +1,35 @@
 <script lang="ts">
-  import { Button } from "flowbite-svelte";
+  import { onMount, onDestroy, tick } from "svelte";
+  import { Button, Spinner } from "flowbite-svelte";
   import { FilePdfOutline } from "flowbite-svelte-icons";
-  import { Spinner } from "flowbite-svelte";
   import { customers } from "../constants";
+  import { showFlattenedHierarchy } from "../store";
 
   let { customerID } = $props();
 
   let loading = $state(false);
 
+  // window.print blocks the UI because its a sync browser API
+  // which prevents from loading spinner to render on time.
   async function handlePrint(e: Event) {
     e.preventDefault();
     loading = true;
 
     try {
-      // Trigger the browser print dialog
+      // Force hierarchy mode
+      showFlattenedHierarchy.set(true);
+
+      // Wait for DOM to update
+      await tick();
+
+      // Allow DOM to paint before blocking
       window.print();
     } catch (err) {
       console.error(err);
       alert("Failed to trigger print");
     } finally {
+      // Reset after print finishes
+      showFlattenedHierarchy.set(false);
       loading = false;
     }
   }
@@ -38,39 +49,31 @@
       ?.customerName} Financial Dashboard
   </span>
 
-  <form class="ml-auto flex items-center" onsubmit={handlePrint}>
-    <Button type="submit" color="blue" disabled={loading}>
+  <div class="ml-auto flex items-center">
+    <Button type="button" color="blue" disabled={loading} onclick={handlePrint}>
       {#if loading}
-        <Spinner size="6" class="mr-2" />
-        Preparing Print...
+        <Spinner size="4" class="mr-2" />
+        Printing...
       {:else}
         <FilePdfOutline class="h-6 w-6 mr-1" /> Print
       {/if}
     </Button>
-  </form>
+  </div>
 </nav>
 
 <style>
   :global {
     @media print {
       @page {
-        size: A3 landscape; /* or landscape */
+        size: A3 landscape;
       }
-
-      #table {
+      #container {
         margin: 0px;
       }
-
-      /* Hide nav and footer while printing */
       nav,
       footer,
       aside {
-        display: none !important;
-      }
-
-      /* Adjust scaling, fonts, etc. */
-      body {
-        font-size: 12pt;
+        display: none;
       }
     }
   }

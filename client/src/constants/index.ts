@@ -30,3 +30,13 @@ export const headers = [
   "Totals",
   "Coding %",
 ];
+
+export enum FilterMode {
+  ProviderOnly = "Provider",
+  LocationOnly = "Location",
+}
+
+export const DropdownItems = [
+  { label: "Location", mode: FilterMode.LocationOnly },
+  { label: "Provider", mode: FilterMode.ProviderOnly },
+];

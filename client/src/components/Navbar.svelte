@@ -22,7 +22,7 @@
       // Wait for DOM to update
       await tick();
 
-      // Allow DOM to paint before blocking
+      // Now trigger print
       window.print();
     } catch (err) {
       console.error(err);

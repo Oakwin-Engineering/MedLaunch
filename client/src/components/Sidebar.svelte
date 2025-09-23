@@ -2,14 +2,8 @@
   import { Search, Button, Dropdown, DropdownItem } from "flowbite-svelte";
   import { ChevronDownOutline } from "flowbite-svelte-icons";
   import SidebarNode from "./SidebarNode.svelte";
-  import { filterEntity, FilterMode } from "../utils/utils";
-  import { showRevisNetwork } from "../store";
-
-  const items = [
-    { label: "Location", mode: FilterMode.LocationOnly },
-    { label: "Provider", mode: FilterMode.ProviderOnly },
-    { label: "Hierarchy", mode: FilterMode.Hierarchy },
-  ];
+  import { filterEntity } from "../utils/utils";
+  import { FilterMode, DropdownItems } from "../constants/index";
 
   let { tableData } = $props();
   let searchTerm = $state("");
@@ -34,10 +28,9 @@
           <ChevronDownOutline class="h-6 w-6" />
         </Button>
         <Dropdown bind:isOpen simple class="w-40 ">
-          {#each items as { label, mode }}
+          {#each DropdownItems as { label, mode }}
             <DropdownItem
               onclick={() => {
-                showRevisNetwork.set(mode === FilterMode.Hierarchy);
                 selectedCategory = mode; // use enum value here
                 isOpen = false;
               }}

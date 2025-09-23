@@ -1,3 +1,5 @@
+import { FilterMode } from "../constants";
+
 export const formatNumber = (value: number) => {
   if (typeof value !== "number") return value;
   return value.toLocaleString("en-US");
@@ -12,12 +14,6 @@ export const formatCurrency = (value: number) => {
     maximumFractionDigits: 0,
   });
 };
-
-export enum FilterMode {
-  ProviderOnly = "Provider",
-  LocationOnly = "Location",
-  Hierarchy = "Hierarchy",
-}
 
 // Separate utility for flattening hierarchy
 export const flattenHierarchy = (nodes: any[]): any[] => {

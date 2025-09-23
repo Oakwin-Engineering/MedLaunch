@@ -7,13 +7,6 @@ type Slug = {
 export const load = async ({ params }: { params: Slug }) => {
   const { customerID } = params;
 
-  if (customerID === "favicon.ico") {
-    return {
-      tableData: [],
-      customerID,
-    };
-  }
-
   try {
     const res = await fetch(`${PUBLIC_API_URL}/table-data/${customerID}`);
     if (!res.ok) {

@@ -16,21 +16,14 @@
 </script>
 
 <Navbar customerID={data.customerID} />
+<Sidebar tableData={data.tableData} />
 
-<div class="flex h-screen">
-  <Sidebar tableData={data.tableData} />
-
-  <div id="container" class="flex-1 ml-64 mt-16">
-    {#if $showFlattenedHierarchy}
-      <div class="p-4 space-y-6 h-full">
-        {#each flattenedHierarchy as node (node.id)}
-          <Table tableData={node} />
-        {/each}
-      </div>
-    {:else}
-      <div class="p-4 h-full">
-        <Table tableData={$selectedNode} />
-      </div>
-    {/if}
-  </div>
+<div id="container" class="flex-1 p-4 ml-64 mt-16">
+  {#if $showFlattenedHierarchy}
+    {#each flattenedHierarchy as node (node.id)}
+      <Table tableData={node} />
+    {/each}
+  {:else}
+    <Table tableData={$selectedNode} />
+  {/if}
 </div>

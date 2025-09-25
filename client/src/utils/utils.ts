@@ -81,56 +81,26 @@ export const filterEntity = (
   return []; // fallback
 };
 
-export const transformToRevisNetworkHierarchy = (data, options = {}) => {
-  const {
-    rootLabel = "All Providers",
-    includeMetrics = true,
-    metricKeys = ["total", "charges", "payments", "rvus"],
-    includeIcon = true,
-  } = options;
+type CodeRow = {
+  label: string;
+  [key: string]: any;
+};
 
-  function processItem(item) {
-    const node = {
-      label: item.label,
-      id: item.id,
-    };
+type GroupedLabel = {
+  label: string;
+  rows: CodeRow[];
+};
 
-    if (includeIcon && item.iconType) {
-      node.iconType = item.iconType;
-    }
+export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
+  const groups: Record<string, CodeRow[]> = {};
 
-    if (includeMetrics && item.data) {
-      node.metrics = {};
-
-      metricKeys.forEach((key) => {
-        if (item.data[key]) {
-          node.metrics[key] = {
-            total: item.data[key].total || 0,
-            values: item.data[key].values || [],
-          };
-        }
-      });
-    }
-
-    if (
-      item.children &&
-      Array.isArray(item.children) &&
-      item.children.length > 0
-    ) {
-      node.children = item.children.map((child) => processItem(child));
-    }
-
-    return node;
+  for (const row of codes) {
+    if (!groups[row.label]) groups[row.label] = [];
+    groups[row.label].push(row);
   }
 
-  const hierarchy = {
-    label: rootLabel,
-    children: [],
-  };
-
-  data.forEach((provider) => {
-    hierarchy.children.push(processItem(provider));
-  });
-
-  return hierarchy;
+  return Object.entries(groups).map(([label, rows]) => ({
+    label,
+    rows,
+  }));
 };

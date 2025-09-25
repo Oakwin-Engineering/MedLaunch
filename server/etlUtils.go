@@ -23,20 +23,25 @@ type Node struct {
 
 // NodeData holds the structured metrics for a node.
 type NodeData struct {
-	CptCodes                   []CptCodeMetric `json:"cptCodes"`
-	Total                      Metric          `json:"total"`
-	TotalVisits                Metric          `json:"totalVisits"`
-	Charges                    Metric          `json:"charges"`
-	Payments                   Metric          `json:"payments"`
-	RVUs                       Metric          `json:"rvus"`
-	Payroll                    Metric          `json:"payroll"`
-	Adjustments                Metric          `json:"adjustments"`
-	OperatingProfit            Metric          `json:"operatingProfit"`
-	RvuPerPatient              Metric          `json:"rvuPerPatient"`
-	ChargePerPatient           Metric          `json:"chargePerPatient"`
-	PaymentPercentOfCharges    Metric          `json:"paymentPercentOfCharges"`
-	AverageReceiptsPerPatient  Metric          `json:"averageReceiptsPerPatient"`
-	AdjustmentPercentOfCharges Metric          `json:"adjustmentPercentOfCharges"`
+	CptCodes                    []CptCodeMetric `json:"cptCodes"`
+	CptCodingTotal              Metric          `json:"cptCodingTotal"`
+	TotalVisits                 Metric          `json:"totalVisits"`
+	PatientCountTotal           Metric          `json:"patientCountTotal"`
+	NPWellnessVisitTotal        Metric          `json:"npWellnessVisitTotal"`
+	MedicareAnnualWellnessTotal Metric          `json:"medicareAnnualWellnessTotal"`
+	FollowUpPatientTotal        Metric          `json:"followUpPatientTotal"`
+
+	Charges                    Metric `json:"charges"`
+	Payments                   Metric `json:"payments"`
+	RVUs                       Metric `json:"rvus"`
+	Payroll                    Metric `json:"payroll"`
+	Adjustments                Metric `json:"adjustments"`
+	OperatingProfit            Metric `json:"operatingProfit"`
+	RvuPerPatient              Metric `json:"rvuPerPatient"`
+	ChargePerPatient           Metric `json:"chargePerPatient"`
+	PaymentPercentOfCharges    Metric `json:"paymentPercentOfCharges"`
+	AverageReceiptsPerPatient  Metric `json:"averageReceiptsPerPatient"`
+	AdjustmentPercentOfCharges Metric `json:"adjustmentPercentOfCharges"`
 }
 
 // CptCodeMetric represents a CPT code's metrics.
@@ -45,6 +50,7 @@ type CptCodeMetric struct {
 	Values []float64 `json:"values"`
 	Total  float64   `json:"total"`
 	Coding string    `json:"coding"`
+	Label  string    `json:"label"`
 }
 
 // Metric represents a single metric with a label, values, total, and coding.

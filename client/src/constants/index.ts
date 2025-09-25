@@ -13,7 +13,7 @@ export const customers = [
   },
 ];
 
-export const headers = [
+export const Headers = [
   "Code/Description",
   "Jan",
   "Feb",
@@ -40,3 +40,19 @@ export const DropdownItems = [
   { label: "Location", mode: FilterMode.LocationOnly },
   { label: "Provider", mode: FilterMode.ProviderOnly },
 ];
+
+export const CPTCodeLabelColors = {
+  "New Patient": "rgb(222, 234, 255)",
+  "Follow Up Patient": "rgb(241, 205, 177)",
+  "Nurse Practitioner Well Visit": "rgba(211, 217, 227, 1)",
+  "CPT Coding": "rgb(254, 249, 200)",
+  "Medicare Annual Wellness": "rgba(210, 190, 237, 1)",
+};
+
+export const LabelMapping = {
+  "New Patient": "patientCountTotal",
+  "Follow Up Patient": "followUpPatientTotal",
+  "Nurse Practitioner Well Visit": "npWellnessVisitTotal",
+  "CPT Coding": "cptCodingTotal",
+  "Medicare Annual Wellness": "medicareAnnualWellnessTotal",
+};

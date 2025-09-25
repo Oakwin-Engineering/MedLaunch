@@ -8,8 +8,8 @@
     TableHeadCell,
   } from "flowbite-svelte";
   import { ChevronDownOutline } from "flowbite-svelte-icons";
-  import { formatCurrency, formatNumber } from "../utils/utils";
-  import { headers } from "../constants";
+  import { formatCurrency, formatNumber, groupByLabel } from "../utils/utils";
+  import { Headers, CPTCodeLabelColors, LabelMapping } from "../constants";
 
   let { tableData } = $props();
 
@@ -20,6 +20,7 @@
   let rvusExpanded = $state(false);
   let paymentsExpanded = $state(false);
   let adjustmentsExpanded = $state(false);
+  let cptCodingExpanded = $state(false); // NEW for CPT Coding toggle
 </script>
 
 <div class="w-full">
@@ -29,7 +30,7 @@
       <TableHead class="bg-gray-50">
         <TableHeadCell class="py-2 px-3"></TableHeadCell>
         <TableHeadCell class="py-2 px-3">Code</TableHeadCell>
-        {#each headers.slice(1) as header, i}
+        {#each Headers.slice(1) as header, i}
           <TableHeadCell
             class="py-2 px-3 text-center {i >= 12 ? 'bg-gray-100' : ''}"
             >{header}</TableHeadCell
@@ -38,73 +39,194 @@
       </TableHead>
       <TableBody>
         {#if data?.cptCodes?.length > 0}
-          {#each data.cptCodes as row, i}
-            <TableBodyRow>
-              {#if i === 0}
-                <TableBodyCell
-                  class="p-0 bg-yellow-100 ibold relative"
-                  rowspan={data.cptCodes.length}
-                >
-                  <div
-                    class="absolute inset-0 flex items-center justify-center"
-                  >
-                    <span class="-rotate-90">CPT Codes</span>
-                  </div>
-                </TableBodyCell>
+          {#each groupByLabel(data.cptCodes) as group}
+            {#if group.label === "CPT Coding"}
+              {#if cptCodingExpanded}
+                {#each group.rows as row, i}
+                  <TableBodyRow>
+                    {#if i === 0}
+                      <TableBodyCell
+                        class="p-10 ibold relative"
+                        style="background-color: {CPTCodeLabelColors[
+                          group.label
+                        ]}"
+                        rowspan={group.rows.length}
+                      >
+                        <div
+                          class="absolute inset-0 flex items-center justify-center"
+                        >
+                          <span
+                            class="-rotate-90 break-words text-center leading-tight max-w-[120px] whitespace-normal"
+                          >
+                            {group.label}
+                          </span>
+                        </div>
+                      </TableBodyCell>
+                    {/if}
+                    <TableBodyCell class="py-2 px-3 ibold"
+                      >{row.code}</TableBodyCell
+                    >
+                    {#each row.values as value}
+                      <TableBodyCell class="py-2 px-3 text-center ibold">
+                        {formatNumber(value)}
+                      </TableBodyCell>
+                    {/each}
+                    <TableBodyCell
+                      class="py-2 px-3 text-center bg-gray-200 font-medium"
+                    >
+                      {formatNumber(row.total)}
+                    </TableBodyCell>
+                    <TableBodyCell
+                      class="py-2 px-3 text-center bg-purple-200 ibold"
+                    >
+                      {row.coding}
+                    </TableBodyCell>
+                  </TableBodyRow>
+                {/each}
               {/if}
-              <TableBodyCell class="py-2 px-3 ibold">{row.code}</TableBodyCell>
-              {#each row.values as value}
-                <TableBodyCell class="py-2 px-3 text-center ibold"
-                  >{formatNumber(value)}</TableBodyCell
+              <!-- CPT Coding Total Row w/ caret -->
+              <TableBodyRow
+                class="font-bold cursor-pointer"
+                style="background-color: {CPTCodeLabelColors[group.label]}"
+                onclick={() => (cptCodingExpanded = !cptCodingExpanded)}
+              >
+                <TableBodyCell class="py-2 px-3">
+                  <ChevronDownOutline
+                    class="h-5 w-5 transform transition-transform duration-200 {cptCodingExpanded
+                      ? 'rotate-180'
+                      : ''}"
+                  />
+                </TableBodyCell>
+                <TableBodyCell class="py-2 px-3">Total</TableBodyCell>
+                {#each data[LabelMapping[group.label]]?.values as value}
+                  <TableBodyCell class="py-2 px-3 text-center ibold">
+                    {formatNumber(value)}
+                  </TableBodyCell>
+                {/each}
+                <TableBodyCell
+                  class="py-2 px-3 text-center bg-gray-200 font-medium"
                 >
+                  {formatNumber(data[LabelMapping[group.label]]?.total)}
+                </TableBodyCell>
+                <TableBodyCell
+                  class="py-2 px-3 text-center bg-purple-200 ibold"
+                >
+                  {data[LabelMapping[group.label]]?.coding}
+                </TableBodyCell>
+              </TableBodyRow>
+            {:else}
+              <!-- all other groups unchanged -->
+              {#each group.rows as row, i}
+                <TableBodyRow>
+                  {#if i === 0}
+                    <TableBodyCell
+                      class="p-10 ibold relative"
+                      style="background-color: {CPTCodeLabelColors[
+                        group.label
+                      ]}"
+                      rowspan={group.rows.length}
+                    >
+                      <div
+                        class="absolute inset-0 flex items-center justify-center"
+                      >
+                        <span
+                          class="-rotate-90 break-words text-center leading-tight max-w-[120px] whitespace-normal"
+                        >
+                          {group.label}
+                        </span>
+                      </div>
+                    </TableBodyCell>
+                  {/if}
+                  <TableBodyCell class="py-2 px-3 ibold"
+                    >{row.code}</TableBodyCell
+                  >
+                  {#each row.values as value}
+                    <TableBodyCell class="py-2 px-3 text-center ibold">
+                      {formatNumber(value)}
+                    </TableBodyCell>
+                  {/each}
+                  <TableBodyCell
+                    class="py-2 px-3 text-center bg-gray-200 font-medium"
+                  >
+                    {formatNumber(row.total)}
+                  </TableBodyCell>
+                  <TableBodyCell
+                    class="py-2 px-3 text-center bg-purple-200 ibold"
+                  >
+                    {row.coding}
+                  </TableBodyCell>
+                </TableBodyRow>
               {/each}
-              <TableBodyCell
-                class="py-2 px-3 text-center bg-gray-200 font-medium"
-                >{formatNumber(row.total)}</TableBodyCell
+              <TableBodyRow
+                class="font-bold"
+                style="background-color: {CPTCodeLabelColors[group.label]}"
               >
-              <TableBodyCell class="py-2 px-3 text-center bg-purple-200 ibold"
-                >{row.coding}</TableBodyCell
-              >
-            </TableBodyRow>
+                <TableBodyCell class="py-2 px-3"></TableBodyCell>
+                <TableBodyCell class="py-2 px-3">Total</TableBodyCell>
+                {#each data[LabelMapping[group.label]]?.values as value}
+                  <TableBodyCell class="py-2 px-3 text-center ibold">
+                    {formatNumber(value)}
+                  </TableBodyCell>
+                {/each}
+                <TableBodyCell
+                  class="py-2 px-3 text-center bg-gray-200 font-medium"
+                >
+                  {formatNumber(data[LabelMapping[group.label]]?.total)}
+                </TableBodyCell>
+                <TableBodyCell
+                  class="py-2 px-3 text-center bg-purple-200 ibold"
+                >
+                  {data[LabelMapping[group.label]]?.coding}
+                </TableBodyCell>
+              </TableBodyRow>
+            {/if}
           {/each}
         {/if}
+
+        <!-- all your other blocks remain the same -->
         {#if data?.total?.values}
           <TableBodyRow class="font-bold bg-yellow-200">
             <TableBodyCell class="py-2 px-3"></TableBodyCell>
             <TableBodyCell class="py-2 px-3">{data.total.label}</TableBodyCell>
             {#each data.total.values as value}
-              <TableBodyCell class="py-2 px-3 text-center"
-                >{formatNumber(value)}</TableBodyCell
-              >
+              <TableBodyCell class="py-2 px-3 text-center">
+                {formatNumber(value)}
+              </TableBodyCell>
             {/each}
-            <TableBodyCell class="py-2 px-3 text-center bg-gray-200 "
-              >{formatNumber(data.total.total)}</TableBodyCell
-            >
-            <TableBodyCell class="py-2 px-3 text-center bg-purple-200"
-              >{data.total.coding}</TableBodyCell
-            >
+            <TableBodyCell class="py-2 px-3 text-center bg-gray-200">
+              {formatNumber(data.total.total)}
+            </TableBodyCell>
+            <TableBodyCell class="py-2 px-3 text-center bg-purple-200">
+              {data.total.coding}
+            </TableBodyCell>
           </TableBodyRow>
         {/if}
+
         {#if data?.totalVisits?.values}
           <TableBodyRow>
             <TableBodyCell class="py-2 px-3"></TableBodyCell>
-            <TableBodyCell class="py-2 px-3"
-              >{data.totalVisits.label}</TableBodyCell
-            >
+            <TableBodyCell class="py-2 px-3 font-bold">
+              {data.totalVisits.label}
+            </TableBodyCell>
             {#each data.totalVisits.values as value}
-              <TableBodyCell class="py-2 px-3 text-center ibold"
-                >{formatNumber(value)}</TableBodyCell
-              >
+              <TableBodyCell class="py-2 px-3 text-center font-bold">
+                {formatNumber(value)}
+              </TableBodyCell>
             {/each}
-            <TableBodyCell class="py-2 px-3 text-center bg-gray-200 font-medium"
-              >{formatNumber(data.totalVisits.total)}</TableBodyCell
+            <TableBodyCell
+              class="py-2 px-3 text-center bg-gray-200 font-medium"
             >
-            <TableBodyCell class="py-2 px-3 text-center bg-purple-200"
-              >{data.totalVisits.coding}</TableBodyCell
-            >
+              {formatNumber(data.totalVisits.total)}
+            </TableBodyCell>
+            <TableBodyCell class="py-2 px-3 text-center bg-purple-200">
+              {data.totalVisits.coding}
+            </TableBodyCell>
           </TableBodyRow>
         {/if}
-        {#if data?.rvus?.values}
+
+        <!-- rvus, charges, payments, adjustments, payroll, operatingProfit remain as you had them -->
+
+        {#if data?.rvus?.values.length}
           <TableBodyRow
             class="bg-green-100 cursor-pointer"
             onclick={() => (rvusExpanded = !rvusExpanded)}
@@ -118,31 +240,33 @@
             </TableBodyCell>
             <TableBodyCell class="py-2 px-3">{data.rvus.label}</TableBodyCell>
             {#each data.rvus.values as value}
-              <TableBodyCell class="py-2 px-3 text-center"
-                >{formatNumber(value)}</TableBodyCell
-              >
+              <TableBodyCell class="py-2 px-3 text-center">
+                {formatNumber(value)}
+              </TableBodyCell>
             {/each}
-            <TableBodyCell class="py-2 px-3 text-center bg-gray-200 font-medium"
-              >{formatNumber(data.rvus.total)}</TableBodyCell
+            <TableBodyCell
+              class="py-2 px-3 text-center bg-gray-200 font-medium"
             >
-            <TableBodyCell class="py-2 px-3 text-center bg-purple-200"
-              >{data.rvus.coding}</TableBodyCell
-            >
+              {formatNumber(data.rvus.total)}
+            </TableBodyCell>
+            <TableBodyCell class="py-2 px-3 text-center bg-purple-200">
+              {data.rvus.coding}
+            </TableBodyCell>
           </TableBodyRow>
           {#if rvusExpanded}
             <TableBodyRow class="bg-green-50">
               <TableBodyCell class="py-2 px-3"></TableBodyCell>
-              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal"
-                >{data.rvuPerPatient.label}</TableBodyCell
-              >
+              <TableBodyCell class="py-2 px-3 pl-8 whitespace-normal">
+                {data.rvuPerPatient.label}
+              </TableBodyCell>
               {#each data.rvuPerPatient.values as value}
-                <TableBodyCell class="py-2 px-3 text-center"
-                  >{value.toFixed(2)}</TableBodyCell
-                >
+                <TableBodyCell class="py-2 px-3 text-center">
+                  {value.toFixed(2)}
+                </TableBodyCell>
               {/each}
-              <TableBodyCell class="py-2 px-3 text-center bg-gray-100"
-                >{data.rvuPerPatient.total.toFixed(2)}</TableBodyCell
-              >
+              <TableBodyCell class="py-2 px-3 text-center bg-gray-100">
+                {data.rvuPerPatient.total.toFixed(2)}
+              </TableBodyCell>
               <TableBodyCell class="py-2 px-3 text-center bg-purple-100"
               ></TableBodyCell>
             </TableBodyRow>
@@ -260,7 +384,7 @@
             </TableBodyRow>
           {/if}
         {/if}
-        {#if data?.adjustments?.values}
+        {#if data?.adjustments?.values.length}
           <TableBodyRow
             class="bg-pink-100 cursor-pointer"
             onclick={() => (adjustmentsExpanded = !adjustmentsExpanded)}

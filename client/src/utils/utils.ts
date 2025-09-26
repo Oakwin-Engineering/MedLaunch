@@ -99,8 +99,20 @@ export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
     groups[row.label].push(row);
   }
 
-  return Object.entries(groups).map(([label, rows]) => ({
-    label,
-    rows,
-  }));
+  const order = [
+    "CPT Coding",
+    "New Patient",
+    "Follow Up Patient",
+    "Nurse Practitioner Well Visit",
+    "Medicare Annual Wellness",
+  ];
+
+  const ordered = Object.entries(groups)
+    .map(([label, rows]) => ({
+      label,
+      rows,
+    }))
+    .sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+
+  return ordered;
 };

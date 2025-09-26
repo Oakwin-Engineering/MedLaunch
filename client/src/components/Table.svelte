@@ -98,7 +98,7 @@
                   />
                 </TableBodyCell>
                 <TableBodyCell class="py-2 px-3">Total</TableBodyCell>
-                {#each data[LabelMapping[group.label]]?.values as value}
+                {#each data.cptCodingTotal.values as value}
                   <TableBodyCell class="py-2 px-3 text-center ibold">
                     {formatNumber(value)}
                   </TableBodyCell>
@@ -106,16 +106,16 @@
                 <TableBodyCell
                   class="py-2 px-3 text-center bg-gray-200 font-medium"
                 >
-                  {formatNumber(data[LabelMapping[group.label]]?.total)}
+                  {formatNumber(data.cptCodingTotal.total)}
                 </TableBodyCell>
                 <TableBodyCell
                   class="py-2 px-3 text-center bg-purple-200 ibold"
                 >
-                  {data[LabelMapping[group.label]]?.coding}
+                  {data.cptCodingTotal?.coding}
                 </TableBodyCell>
               </TableBodyRow>
             {:else}
-              <!-- all other groups unchanged -->
+              <!-- all other groups  -->
               {#each group.rows as row, i}
                 <TableBodyRow>
                   {#if i === 0}

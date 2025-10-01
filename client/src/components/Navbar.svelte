@@ -1,62 +1,44 @@
 <script lang="ts">
-  import { tick } from "svelte";
-  import { Button, Spinner } from "flowbite-svelte";
+  import { Button } from "flowbite-svelte";
   import { FilePdfOutline } from "flowbite-svelte-icons";
-  import { customers } from "../constants";
-  import { showFlattenedHierarchy } from "../store";
+  import { store } from "../store.svelte";
 
-  let { customerID } = $props();
+  const dashboardNames: Record<string, string> = {
+    ProviderRankings: "Provider Rankings",
+    PhysicianPerformance: "Physician Performance Dashboard",
+    FinancialDashboard: "Financial Dashboard",
+    OperationalDashboard: "Operational Dashboard",
+    ClinicalDashboard: "Clinical Dashboard",
+  };
 
-  let loading = $state(false);
-
-  // window.print blocks the UI because its a sync browser API
-  // which prevents from loading spinner to render on time.
-  async function handlePrint(e: Event) {
-    e.preventDefault();
-    loading = true;
-
-    try {
-      // Force hierarchy mode
-      showFlattenedHierarchy.set(true);
-
-      // Wait for DOM to update
-      await tick();
-
-      // Now trigger print
-      window.print();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to trigger print");
-    } finally {
-      // Reset after print finishes
-      showFlattenedHierarchy.set(false);
-      loading = false;
-    }
-  }
+  const currentDashboardName = $derived(
+    dashboardNames[store.currentDashboard] || "Dashboard"
+  );
 </script>
 
 <nav
   class="fixed top-0 left-0 right-0 bg-white shadow-md z-100 h-16 flex items-center px-4"
 >
   <img
-    src="/images/{customerID}-logo.png"
+    src="/images/{store.customerID}-logo.png"
     alt=""
     class="h-12 object-contain mr-4"
   />
 
   <span class="text-xl font-bold text-blue-600">
-    {customers.find((customer) => customer.customerID === customerID)
-      ?.customerName} Financial Dashboard
+    {currentDashboardName}
   </span>
 
-  <div class="ml-auto flex items-center">
-    <Button type="button" color="blue" disabled={loading} onclick={handlePrint}>
-      {#if loading}
-        <Spinner size="4" class="mr-2" />
-        Printing...
-      {:else}
-        <FilePdfOutline class="h-6 w-6 mr-1" /> Print
-      {/if}
+  <div class="ml-auto flex items-center gap-2">
+    <Button
+      type="button"
+      color="blue"
+      onclick={() => (store.isDrawerOpen = !store.isDrawerOpen)}
+    >
+      All Dashboards
+    </Button>
+    <Button type="button" color="blue" onclick={() => window.print()}>
+      <FilePdfOutline class="h-6 w-6 mr-1" /> Print
     </Button>
   </div>
 </nav>

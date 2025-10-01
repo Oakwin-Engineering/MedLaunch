@@ -4,16 +4,15 @@
   import SidebarNode from "./SidebarNode.svelte";
   import { filterEntity } from "../utils/utils";
   import { FilterMode, DropdownItems } from "../constants/index";
+  import { store } from "../store.svelte";
 
-  let { tableData } = $props();
   let searchTerm = $state("");
   let isOpen = $state(false);
   // default to Location
-  let selectedCategory = $state(FilterMode.LocationOnly);
 
   // filtered data reacts to changes in state
   let filteredData = $derived(
-    filterEntity(tableData, searchTerm, selectedCategory)
+    filterEntity(store.tableData, searchTerm, store.sidebarCategory)
   );
 </script>
 
@@ -24,17 +23,17 @@
     <form class="flex items-center">
       <div class="relative">
         <Button color="blue" class="rounded-e-none p-2">
-          {selectedCategory}
+          {store.sidebarCategory}
           <ChevronDownOutline class="h-6 w-6" />
         </Button>
         <Dropdown bind:isOpen simple class="w-40 ">
           {#each DropdownItems as { label, mode }}
             <DropdownItem
               onclick={() => {
-                selectedCategory = mode; // use enum value here
+                store.sidebarCategory = mode; // use enum value here
                 isOpen = false;
               }}
-              class={`w-full ${selectedCategory === mode ? "bg-blue-100 dark:bg-blue-600" : ""}`}
+              class={`w-full ${store.sidebarCategory === mode ? "bg-blue-100 dark:bg-blue-600" : ""}`}
             >
               {label}
             </DropdownItem>

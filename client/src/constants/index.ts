@@ -34,11 +34,13 @@ export const Headers = [
 export enum FilterMode {
   ProviderOnly = "Provider",
   LocationOnly = "Location",
+  Hierarchial = "Hierarchial PDF",
 }
 
 export const DropdownItems = [
   { label: "Location", mode: FilterMode.LocationOnly },
   { label: "Provider", mode: FilterMode.ProviderOnly },
+  { label: "Hierarchial PDF", mode: FilterMode.Hierarchial },
 ];
 
 export const CPTCodeLabelColors = {

@@ -6,7 +6,7 @@
     ChevronDownOutline,
   } from "flowbite-svelte-icons";
   import SidebarNode from "./SidebarNode.svelte";
-  import { selectedNode } from "../store";
+  import { store } from "../store.svelte";
 
   const iconMap: Record<string, any> = {
     clinic: BuildingSolid,
@@ -18,14 +18,16 @@
   let { node, depth = 0 } = $props();
   let isOpen = $state(false);
 
-  function handleClick() {
+  const handleClick = () => {
     isOpen = !isOpen;
-    selectedNode.set(node);
-  }
+    store.selectedNode = node;
+  };
 
   const IconComponent = $derived(iconMap[node.iconType]);
   const isParent = $derived(node.children && node.children.length > 0);
-  const isSelected = $derived($selectedNode && $selectedNode.id === node.id);
+  const isSelected = $derived(
+    store.selectedNode && store.selectedNode.id === node.id
+  );
 </script>
 
 <div

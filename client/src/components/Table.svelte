@@ -20,7 +20,7 @@
   let rvusExpanded = $state(false);
   let paymentsExpanded = $state(false);
   let adjustmentsExpanded = $state(false);
-  let cptCodingExpanded = $state(false); // NEW for CPT Coding toggle
+  let cptCodingExpanded = $state(false);
 </script>
 
 <div class="w-full">

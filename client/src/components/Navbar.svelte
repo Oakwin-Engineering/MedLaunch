@@ -5,7 +5,7 @@
 
   const dashboardNames: Record<string, string> = {
     ProviderRankings: "Provider Rankings",
-    PhysicianPerformance: "Physician Performance Dashboard",
+    ProviderPerformance: "Provider Performance Dashboard",
     FinancialDashboard: "Financial Dashboard",
     OperationalDashboard: "Operational Dashboard",
     ClinicalDashboard: "Clinical Dashboard",

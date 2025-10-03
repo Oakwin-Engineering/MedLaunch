@@ -192,7 +192,7 @@ func loadUHealthDataSources() (*UHealthDataSources, error) {
 
 	// Process payroll data
 	var err error
-	ds.monthlyProviderPayrolls, ds.uniqueADPProviderNames, err = processADPProviderPayrollMonthly("data/adp.csv")
+	ds.monthlyProviderPayrolls, ds.uniqueADPProviderNames, err = processADPProviderPayrollMonthlyUHealth("data/adp.csv")
 	if err != nil {
 		return nil, fmt.Errorf("failed to process ADP payroll data: %w", err)
 	}
@@ -207,25 +207,25 @@ func loadUHealthDataSources() (*UHealthDataSources, error) {
 		cptCodesByProviderPath := fmt.Sprintf("data/%s_charges_by_provider_bottom.csv", month)
 
 		// Load all data for this month
-		if facilityTotals, err := processChargesByClinic(chargesByClinicPath); err == nil {
+		if facilityTotals, err := processChargesByClinicUHealth(chargesByClinicPath); err == nil {
 			ds.monthlyFacilityTotals[month] = facilityTotals
 		}
-		if facilityVisits, err := processVisitsByClinic(chargesByClinicPath); err == nil {
+		if facilityVisits, err := processVisitsByClinicUHealth(chargesByClinicPath); err == nil {
 			ds.monthlyFacilityVisits[month] = facilityVisits
 		}
-		if providerTotals, err := processChargesByProvider(chargesByProviderPath); err == nil {
+		if providerTotals, err := processChargesByProviderUHealth(chargesByProviderPath); err == nil {
 			ds.monthlyProviderTotals[month] = providerTotals
 		}
-		if facilityCollections, err := processCollectionsByFacility(collectionsByFacilityPath); err == nil {
+		if facilityCollections, err := processCollectionsByFacilityUHealth(collectionsByFacilityPath); err == nil {
 			ds.monthlyFacilityCollections[month] = facilityCollections
 		}
-		if providerCollections, err := processCollectionsByProvider(collectionsByProviderPath); err == nil {
+		if providerCollections, err := processCollectionsByProviderUHealth(collectionsByProviderPath); err == nil {
 			ds.monthlyProviderCollections[month] = providerCollections
 		}
-		if providerCodes, err := processProviderCodeRelationships(cptCodesByProviderPath); err == nil {
+		if providerCodes, err := processProviderCodeRelationshipsUHealth(cptCodesByProviderPath); err == nil {
 			ds.monthlyProviderCodes[month] = providerCodes
 		}
-		if providerVisits, err := processVisitsByProvider(chargesByProviderPath); err == nil {
+		if providerVisits, err := processVisitsByProviderUHealth(chargesByProviderPath); err == nil {
 			ds.monthlyProviderVisits[month] = providerVisits
 		}
 	}
@@ -363,7 +363,7 @@ func uHealthTransform() ([]byte, error) {
 			continue
 		}
 
-		facilityProviders, providerFacilities := processProviderFacilityRelationships(allDataPath)
+		facilityProviders, providerFacilities := processProviderFacilityRelationshipsUHealth(allDataPath)
 		if facilityProviders == nil || providerFacilities == nil {
 			continue
 		}

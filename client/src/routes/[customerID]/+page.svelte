@@ -5,7 +5,7 @@
 
   onMount(() => {
     // Redirect to the ppm dashboard by default
-    goto(`/${store.customerID}/ppm-dashboard`);
+    goto(`/${store.customerID}/provider-performance`);
   });
 </script>
 

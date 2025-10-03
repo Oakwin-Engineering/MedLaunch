@@ -3,7 +3,7 @@
   import { ChevronDownOutline } from "flowbite-svelte-icons";
   import SidebarNode from "./SidebarNode.svelte";
   import { filterEntity } from "../utils/utils";
-  import { FilterMode, DropdownItems } from "../constants/index";
+  import { DropdownItems } from "../constants/index";
   import { store } from "../store.svelte";
 
   let searchTerm = $state("");
@@ -12,7 +12,11 @@
 
   // filtered data reacts to changes in state
   let filteredData = $derived(
-    filterEntity(store.tableData, searchTerm, store.sidebarCategory)
+    filterEntity(
+      store.allDashboards.providerPerformance[store.activeYear],
+      searchTerm,
+      store.sidebarCategory
+    )
   );
 </script>
 

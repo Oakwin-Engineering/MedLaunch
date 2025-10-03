@@ -12,10 +12,10 @@ export const load = async ({ params }: { params: Slug }) => {
     if (!res.ok) {
       throw new Error(`Failed to fetch: ${res.statusText}`);
     }
-    const tableData = await res.json();
+    const allDashboards = await res.json();
 
     return {
-      tableData,
+      allDashboards,
       customerID,
     };
   } catch (error) {

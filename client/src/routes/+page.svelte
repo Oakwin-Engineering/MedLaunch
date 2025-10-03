@@ -94,7 +94,7 @@
 
           <div class="mt-auto">
             <a
-              href={`/${customer.customerID}/ppm-dashboard`}
+              href={`/${customer.customerID}/provider-rankings`}
               class="block text-center w-full px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
             >
               View Dashboard

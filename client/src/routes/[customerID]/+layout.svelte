@@ -8,9 +8,12 @@
 
   // Initialize the global store with data from the server
   store.customerID = data.customerID ?? "";
-  store.tableData = data.tableData;
-  store.selectedNode = data.tableData[0];
-  store.flattenedHierarchy = flattenHierarchy(data.tableData);
+  store.allDashboards = data.allDashboards;
+  store.selectedNode =
+    data.allDashboards.providerPerformance[store.activeYear][0];
+  store.flattenedHierarchy = flattenHierarchy(
+    data.allDashboards.providerPerformance[store.activeYear]
+  );
 </script>
 
 <Navbar />

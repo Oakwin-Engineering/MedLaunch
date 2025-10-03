@@ -3,13 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
-)
-
-const (
-	financialAnalysisFile = "data/financial_analysis.csv"
-	rvuFile               = "data/rvu.csv"
-	payrollFile           = "data/payroll.csv"
 )
 
 var CPT_CODE_MAPPING_VITALCARE = map[string]string{
@@ -204,14 +199,41 @@ func (mb *MetricBuilder) buildCPTMetrics() ([]CptCodeMetric, map[string]Metric) 
 }
 
 func vitalCareTransform() ([]byte, error) {
-	// Load all data sources
-	dataSources, err := loadDataSources()
+	years, err := getYearDirectories("data")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get year directories: %w", err)
+	}
+
+	allYearsData := make(map[string][]*Node)
+
+	for _, year := range years {
+		items, err := processYearData(year)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process data for year %s: %w", year, err)
+		}
+		allYearsData[year] = items
+	}
+
+	dashboardData := map[string]interface{}{
+		"providerRankings":    map[string]interface{}{},
+		"providerPerformance": allYearsData,
+		"financial":           map[string]interface{}{},
+		"operational":         map[string]interface{}{},
+		"clinical":            map[string]interface{}{},
+	}
+
+	return json.Marshal(dashboardData)
+}
+
+func processYearData(year string) ([]*Node, error) {
+	// Load all data sources for the given year
+	dataSources, err := loadDataSources(year)
 	if err != nil {
 		return nil, err
 	}
 
 	// Process provider locations
-	locationProviderMap, uniqueProviders, err := processProviderLocationRelationshipVitalCare("data/provider_location_relationship.csv")
+	locationProviderMap, uniqueProviders, err := processProviderLocationRelationshipVitalCare(fmt.Sprintf("data/%s/provider_location_relationship.csv", year))
 	if err != nil {
 		return nil, fmt.Errorf("failed to process provider location relationships: %w", err)
 	}
@@ -237,12 +259,16 @@ func vitalCareTransform() ([]byte, error) {
 	// Sort items alphabetically, keeping "All Providers" at the top
 	sortNodes(items)
 
-	return json.Marshal(items)
+	return items, nil
 }
 
-func loadDataSources() (*DataSources, error) {
+func loadDataSources(year string) (*DataSources, error) {
 	ds := &DataSources{}
 	var err error
+
+	financialAnalysisFile := fmt.Sprintf("data/%s/financial_analysis.csv", year)
+	rvuFile := fmt.Sprintf("data/%s/rvu.csv", year)
+	payrollFile := fmt.Sprintf("data/%s/payroll.csv", year)
 
 	ds.units, err = processUnitsVitalCare(financialAnalysisFile)
 	if err != nil {
@@ -264,7 +290,7 @@ func loadDataSources() (*DataSources, error) {
 		return nil, fmt.Errorf("failed to process adjustments: %w", err)
 	}
 
-	ds.uniqueCPTCodes, err = getUniqueCPTCodes(financialAnalysisFile)
+	ds.uniqueCPTCodes, err = getUniqueCPTCodesVitalCare(financialAnalysisFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unique CPT codes: %w", err)
 	}
@@ -339,10 +365,10 @@ func createAllProvidersNode(uniqueProviders []string, ds *DataSources, namesMapp
 	}
 
 	return &Node{
-		ID:    "all-providers",
-		Label: "All Providers",
-		// IconType: "clinic",
-		Data: builder.buildNodeData(),
+		ID:       "all-providers",
+		Label:    "All Providers",
+		IconType: "clinic",
+		Data:     builder.buildNodeData(),
 	}
 }
 
@@ -510,4 +536,19 @@ func sortNodes(items []*Node) {
 		}
 		return items[i].Label < items[j].Label
 	})
+}
+
+func getYearDirectories(basePath string) ([]string, error) {
+	files, err := os.ReadDir(basePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var years []string
+	for _, file := range files {
+		if file.IsDir() {
+			years = append(years, file.Name())
+		}
+	}
+	return years, nil
 }

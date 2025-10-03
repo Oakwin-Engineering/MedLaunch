@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -212,4 +213,15 @@ func downloadDataHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Data download completed successfully")
+}
+
+func transformData(clientName string) ([]byte, error) {
+	switch clientName {
+	case "uhealth":
+		return uHealthTransform()
+	case "vitalcare":
+		return vitalCareTransform()
+	default:
+		return nil, errors.New("no customer name sent in")
+	}
 }

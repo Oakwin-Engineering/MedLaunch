@@ -2,7 +2,6 @@
   import Navbar from "../../components/Navbar.svelte";
   import Drawer from "../../components/Drawer.svelte";
   import { store } from "../../store.svelte";
-  import { flattenHierarchy } from "../../utils/utils";
 
   let { children, data } = $props();
 

@@ -4,7 +4,8 @@
 
   let { title, data, color, categories } = $props();
 
-  const options: ApexOptions = {
+  // Make options reactive using $derived
+  const options: ApexOptions = $derived({
     series: [
       {
         name: "Value",
@@ -86,7 +87,7 @@
         top: -20,
       },
     },
-  };
+  });
 </script>
 
 <div class="mb-6">

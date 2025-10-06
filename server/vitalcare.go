@@ -28,6 +28,14 @@ var CPT_CODE_MAPPING_VITALCARE = map[string]string{
 	"99496": "Medicare Annual Wellness",
 }
 
+var SLEEP_STUDY_CPT = map[string]bool{
+	"95811": true,
+	"95810": true,
+	"95805": true,
+}
+
+var G2211 = "G2211"
+
 // CPT category mappings for cleaner aggregation
 var CPT_CATEGORIES = map[string]string{
 	"New Patient":                   "PatientCountTotal",
@@ -58,6 +66,7 @@ type DataSources struct {
 	totalVisits              map[string]map[string]int64
 	payroll                  map[string]map[string]float64
 	uniquePaylocityProviders []string
+	providerMetrics          map[string]map[string]int64 // metric type -> provider -> count
 }
 
 func newMetricBuilder() *MetricBuilder {
@@ -135,10 +144,10 @@ func (mb *MetricBuilder) buildNodeData() NodeData {
 		RVUs:                        createMetric("RVUs", mb.rvus, rvusTotal),
 		Payroll:                     createMetric("Payroll", mb.payroll, payrollTotal),
 		OperatingProfit:             createMetric("Operating Profit Margin", opmValues, opmTotal),
-		RvuPerPatient:               createMetric("RVUs per Patient", rvuPerPatient, sumOrAverage(rvuPerPatient, totalVisitsTotal, rvusTotal)),
-		ChargePerPatient:            createMetric("Charges per Patient", chargePerPatient, sumOrAverage(chargePerPatient, totalVisitsTotal, chargesTotal)),
+		RvuPerPatient:               createMetric("RVUs per Patient", rvuPerPatient, sumOrAverage(totalVisitsTotal, rvusTotal)),
+		ChargePerPatient:            createMetric("Charges per Patient", chargePerPatient, sumOrAverage(totalVisitsTotal, chargesTotal)),
 		PaymentPercentOfCharges:     createMetric("Payment % of Charges", paymentPercentOfCharges, percentageValue(paymentsTotal, chargesTotal)),
-		AverageReceiptsPerPatient:   createMetric("Average Receipts per Patient", averageReceiptsPerPatient, sumOrAverage(averageReceiptsPerPatient, totalVisitsTotal, paymentsTotal)),
+		AverageReceiptsPerPatient:   createMetric("Average Receipts per Patient", averageReceiptsPerPatient, sumOrAverage(totalVisitsTotal, paymentsTotal)),
 		AdjustmentPercentOfCharges:  createMetric("Adjustments % of Charges", adjustmentPercentOfCharges, percentageValue(adjustmentsTotal, chargesTotal)),
 	}
 }
@@ -204,36 +213,47 @@ func vitalCareTransform() ([]byte, error) {
 		return nil, fmt.Errorf("failed to get year directories: %w", err)
 	}
 
+	// Load accounts receivable data once (not year-specific)
+	accountsReceivable, err := processAccountsReceivable("data/accounts_receivable.csv")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load accounts receivable: %w", err)
+	}
+
 	allYearsData := make(map[string][]*Node)
+	allYearsProviderMetrics := make(map[string]map[string]map[string]int64)
 
 	for _, year := range years {
-		items, err := processYearData(year)
+		// Load data sources for the year
+		dataSources, err := loadDataSources(year)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load data sources for year %s: %w", year, err)
+		}
+
+		// Process year data to build node tree
+		items, err := processYearData(dataSources)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process data for year %s: %w", year, err)
 		}
+
+		// Store results
 		allYearsData[year] = items
+		allYearsProviderMetrics[year] = dataSources.providerMetrics
 	}
 
 	dashboardData := map[string]interface{}{
-		"providerRankings":    map[string]interface{}{},
+		"providerRankings":    allYearsProviderMetrics,
 		"providerPerformance": allYearsData,
-		"financial":           map[string]interface{}{},
+		"financial":           accountsReceivable,
 		"operational":         map[string]interface{}{},
-		"clinical":            map[string]interface{}{},
+		// "clinical":            map[string]interface{}{},
 	}
 
 	return json.Marshal(dashboardData)
 }
 
-func processYearData(year string) ([]*Node, error) {
-	// Load all data sources for the given year
-	dataSources, err := loadDataSources(year)
-	if err != nil {
-		return nil, err
-	}
-
+func processYearData(dataSources *DataSources) ([]*Node, error) {
 	// Process provider locations
-	locationProviderMap, uniqueProviders, err := processProviderLocationRelationshipVitalCare(fmt.Sprintf("data/%s/provider_location_relationship.csv", year))
+	locationProviderMap, uniqueProviders, err := processProviderLocationRelationshipVitalCare("data/provider_location_relationship.csv")
 	if err != nil {
 		return nil, fmt.Errorf("failed to process provider location relationships: %w", err)
 	}
@@ -260,6 +280,53 @@ func processYearData(year string) ([]*Node, error) {
 	sortNodes(items)
 
 	return items, nil
+}
+
+// aggregateProviderMetrics aggregates various provider-level metrics from monthly data
+func aggregateProviderMetrics(ds *DataSources, monthlyPatientCount map[string]map[string]int64) {
+	ds.providerMetrics = make(map[string]map[string]int64)
+
+	// Initialize metric types
+	ds.providerMetrics["PatientCount"] = make(map[string]int64)
+	ds.providerMetrics["RVUs"] = make(map[string]int64)
+	ds.providerMetrics["SleepStudy"] = make(map[string]int64)
+	ds.providerMetrics["G2211"] = make(map[string]int64)
+
+	// Aggregate patient counts
+	for _, providerData := range monthlyPatientCount {
+		for provider, count := range providerData {
+			ds.providerMetrics["PatientCount"][provider] += count
+		}
+	}
+
+	// Aggregate RVUs
+	for _, providerData := range ds.rvus {
+		for provider, rvuCount := range providerData {
+			ds.providerMetrics["RVUs"][provider] += rvuCount
+		}
+	}
+
+	// Aggregate sleep study CPTs
+	for _, cptMap := range ds.units {
+		for cptCode, providerMap := range cptMap {
+			if _, isSleepStudy := SLEEP_STUDY_CPT[cptCode]; isSleepStudy {
+				for provider, units := range providerMap {
+					ds.providerMetrics["SleepStudy"][provider] += int64(units)
+				}
+			}
+		}
+	}
+
+	// Aggregate G2211 CPTs
+	for _, cptMap := range ds.units {
+		for cptCode, providerMap := range cptMap {
+			if cptCode == G2211 {
+				for provider, units := range providerMap {
+					ds.providerMetrics["G2211"][provider] += int64(units)
+				}
+			}
+		}
+	}
 }
 
 func loadDataSources(year string) (*DataSources, error) {
@@ -295,10 +362,18 @@ func loadDataSources(year string) (*DataSources, error) {
 		return nil, fmt.Errorf("failed to get unique CPT codes: %w", err)
 	}
 
+	monthlyPatientCount, err := processMonthlyPatientCount(financialAnalysisFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process patient count: %w", err)
+	}
+
 	ds.rvus, err = processRVUsVitalCare(rvuFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process RVUs: %w", err)
 	}
+
+	// Aggregate all provider metrics
+	aggregateProviderMetrics(ds, monthlyPatientCount)
 
 	ds.totalVisits, err = processTotalVisitsVitalCare(rvuFile)
 	if err != nil {
@@ -512,7 +587,7 @@ func percentageValue(numerator, denominator float64) float64 {
 	return 0
 }
 
-func sumOrAverage(values []float64, divisor, numerator float64) float64 {
+func sumOrAverage(divisor, numerator float64) float64 {
 	if divisor > 0 {
 		return numerator / divisor
 	}

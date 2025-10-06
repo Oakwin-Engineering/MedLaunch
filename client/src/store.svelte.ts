@@ -1,8 +1,5 @@
 import { FilterMode } from "./constants";
 
-const currentDate = new Date();
-const currentYear = currentDate.getFullYear();
-
 // Type for year-keyed dashboard data
 type YearData = {
   [year: string]: any[];
@@ -22,8 +19,6 @@ export const store = $state({
   selectedNode: null as any,
   sidebarCategory: FilterMode.LocationOnly,
   allDashboards: {} as AllDashboards,
-  flattenedHierarchy: [] as any[],
   isDrawerOpen: false,
   currentDashboard: "ProviderPerformance",
-  activeYear: currentYear,
 });

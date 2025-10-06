@@ -127,6 +127,10 @@ func processTotalVisitsVitalCare(filePath string) (map[string]map[string]int64, 
 	return processFinancialDataVitalCare(filePath, 6)
 }
 
+func processMonthlyPatientCount(filePath string) (map[string]map[string]int64, error) {
+	return processFinancialDataVitalCare(filePath, 16)
+}
+
 // processChargesVitalCare processes charges data for VitalCare.
 func processChargesVitalCare(filePath string) (map[string]map[string]map[string]float64, error) {
 	return processFinancialAnalysisVitalCare(filePath, 4)
@@ -301,4 +305,120 @@ func processProviderLocationRelationshipVitalCare(filePath string) (map[string][
 	}
 
 	return locationProviderRelationships, uniqueProviders, nil
+}
+
+// processAccountsReceivable processes the accounts receivable CSV file
+func processAccountsReceivable(filePath string) (map[string]interface{}, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening accounts receivable file: %v", err)
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	r.FieldsPerRecord = -1
+
+	// Read header
+	header, err := r.Read()
+	if err != nil {
+		return nil, fmt.Errorf("error reading CSV header: %v", err)
+	}
+
+	// Define the columns we want to keep
+	columnsToKeep := map[string]bool{
+		"0-30 Days":       true,
+		"31-60 Days":      true,
+		"61-90 Days":      true,
+		"91-120 Days":     true,
+		"121 - 150 Days":  true,
+		"151 - 180 Days":  true,
+		"> 180 Days":      true,
+		"Total Balance":   true,
+		"Total Balance %": true,
+	}
+
+	// Find indices of columns to keep
+	columnIndices := make(map[string]int)
+	for i, col := range header {
+		colName := strings.TrimSpace(col)
+		if columnsToKeep[colName] {
+			columnIndices[colName] = i
+		}
+	}
+
+	result := make(map[string]interface{})
+	balanceTypes := []string{}
+
+	// Track sums for Overall row
+	overallSums := make(map[string]float64)
+
+	// Read all balance type rows
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading CSV record: %v", err)
+		}
+
+		balanceType := strings.TrimSpace(record[0])
+		if balanceType == "" {
+			continue
+		}
+
+		balanceTypes = append(balanceTypes, balanceType)
+
+		// Create a map for this balance type with only selected columns
+		balanceData := make(map[string]string)
+		for colName, idx := range columnIndices {
+			if idx < len(record) {
+				value := strings.TrimSpace(record[idx])
+				if value != "" {
+					balanceData[colName] = value
+
+					// Parse and sum for Overall row (skip percentages)
+					if colName != "Total Balance %" {
+						cleanValue := strings.ReplaceAll(value, ",", "")
+						if floatVal, err := strconv.ParseFloat(cleanValue, 64); err == nil {
+							overallSums[colName] += floatVal
+						}
+					}
+				}
+			}
+		}
+
+		result[balanceType] = balanceData
+	}
+
+	// Add "Overall - Sum" row
+	overallData := make(map[string]string)
+	var totalBalance float64
+
+	for colName, sum := range overallSums {
+		if colName == "Total Balance" {
+			totalBalance = sum
+		}
+		overallData[colName] = fmt.Sprintf("%.2f", sum)
+	}
+
+	// Calculate Total Balance % for Overall row (should be 100%)
+	overallData["Total Balance %"] = "100%"
+	result["Overall - Sum"] = overallData
+
+	// Add "% Subtotal" row - each column as percentage of Total Balance
+	subtotalData := make(map[string]string)
+	if totalBalance > 0 {
+		for colName, sum := range overallSums {
+			if colName != "Total Balance" {
+				percentage := (sum / totalBalance) * 100
+				subtotalData[colName] = fmt.Sprintf("%.0f%%", percentage)
+			}
+		}
+	}
+	subtotalData["Total Balance"] = ""
+	subtotalData["Total Balance %"] = "100%"
+	result["% Subtotal"] = subtotalData
+
+	return result, nil
 }

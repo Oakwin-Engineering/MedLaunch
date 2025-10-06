@@ -10,6 +10,40 @@ import (
 	"time"
 )
 
+func loadStateDivisionMapping(path string) (map[string]LocationMapping, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	mapping := make(map[string]LocationMapping)
+	for i, record := range records {
+		if i == 0 { // Skip header
+			continue
+		}
+		if len(record) >= 3 {
+			state := record[0]
+			division := record[1]
+			location := record[2]
+			if state != "" && division != "" && location != "" {
+				mapping[location] = LocationMapping{
+					State:    state,
+					Division: division,
+				}
+			}
+		}
+	}
+
+	return mapping, nil
+}
+
 // processCSVUHealth is a generic CSV processing function for UHealth data.
 func processCSVUHealth(filePath string, keyIdx, amountIdx int) (map[string]float64, error) {
 	file, err := os.Open(filePath)

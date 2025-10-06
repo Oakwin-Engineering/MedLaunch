@@ -9,11 +9,6 @@
   // Initialize the global store with data from the server
   store.customerID = data.customerID ?? "";
   store.allDashboards = data.allDashboards;
-  store.selectedNode =
-    data.allDashboards.providerPerformance[store.activeYear][0];
-  store.flattenedHierarchy = flattenHierarchy(
-    data.allDashboards.providerPerformance[store.activeYear]
-  );
 </script>
 
 <Navbar />

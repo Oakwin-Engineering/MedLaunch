@@ -6,14 +6,15 @@
   import { DropdownItems } from "../constants/index";
   import { store } from "../store.svelte";
 
+  let { activeYear } = $props();
+
   let searchTerm = $state("");
   let isOpen = $state(false);
-  // default to Location
 
   // filtered data reacts to changes in state
   let filteredData = $derived(
     filterEntity(
-      store.allDashboards.providerPerformance[store.activeYear],
+      store.allDashboards.providerPerformance[activeYear],
       searchTerm,
       store.sidebarCategory
     )
@@ -34,7 +35,7 @@
           {#each DropdownItems as { label, mode }}
             <DropdownItem
               onclick={() => {
-                store.sidebarCategory = mode; // use enum value here
+                store.sidebarCategory = mode;
                 isOpen = false;
               }}
               class={`w-full ${store.sidebarCategory === mode ? "bg-blue-100 dark:bg-blue-600" : ""}`}

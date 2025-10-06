@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -35,40 +34,6 @@ type UHealthMetricBuilder struct {
 type LocationMapping struct {
 	State    string
 	Division string
-}
-
-func loadStateDivisionMapping(path string) (map[string]LocationMapping, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	mapping := make(map[string]LocationMapping)
-	for i, record := range records {
-		if i == 0 { // Skip header
-			continue
-		}
-		if len(record) >= 3 {
-			state := record[0]
-			division := record[1]
-			location := record[2]
-			if state != "" && division != "" && location != "" {
-				mapping[location] = LocationMapping{
-					State:    state,
-					Division: division,
-				}
-			}
-		}
-	}
-
-	return mapping, nil
 }
 
 func newUHealthMetricBuilder() *UHealthMetricBuilder {
@@ -179,7 +144,7 @@ func (mb *UHealthMetricBuilder) buildCPTMetrics() ([]CptCodeMetric, Metric) {
 	return metrics, totalMetric
 }
 
-func loadUHealthDataSources() (*UHealthDataSources, error) {
+func loadUHealthDataSources(year string) (*UHealthDataSources, error) {
 	ds := &UHealthDataSources{
 		monthlyFacilityTotals:      make(map[string]map[string]float64),
 		monthlyProviderTotals:      make(map[string]map[string]float64),
@@ -192,7 +157,7 @@ func loadUHealthDataSources() (*UHealthDataSources, error) {
 
 	// Process payroll data
 	var err error
-	ds.monthlyProviderPayrolls, ds.uniqueADPProviderNames, err = processADPProviderPayrollMonthlyUHealth("data/adp.csv")
+	ds.monthlyProviderPayrolls, ds.uniqueADPProviderNames, err = processADPProviderPayrollMonthlyUHealth(fmt.Sprintf("data/%s/adp.csv", year))
 	if err != nil {
 		return nil, fmt.Errorf("failed to process ADP payroll data: %w", err)
 	}
@@ -200,11 +165,11 @@ func loadUHealthDataSources() (*UHealthDataSources, error) {
 	// Process each month's data
 	for _, month := range months {
 		// Generate file paths
-		chargesByClinicPath := fmt.Sprintf("data/%s_charges_by_clinic.csv", month)
-		chargesByProviderPath := fmt.Sprintf("data/%s_charges_by_provider_top.csv", month)
-		collectionsByFacilityPath := fmt.Sprintf("data/%s_collections_by_facility.csv", month)
-		collectionsByProviderPath := fmt.Sprintf("data/%s_collections_by_provider.csv", month)
-		cptCodesByProviderPath := fmt.Sprintf("data/%s_charges_by_provider_bottom.csv", month)
+		chargesByClinicPath := fmt.Sprintf("data/%s/%s_charges_by_clinic.csv", year, month)
+		chargesByProviderPath := fmt.Sprintf("data/%s/%s_charges_by_provider_top.csv", year, month)
+		collectionsByFacilityPath := fmt.Sprintf("data/%s/%s_collections_by_facility.csv", year, month)
+		collectionsByProviderPath := fmt.Sprintf("data/%s/%s_collections_by_provider.csv", year, month)
+		cptCodesByProviderPath := fmt.Sprintf("data/%s/%s_charges_by_provider_bottom.csv", year, month)
 
 		// Load all data for this month
 		if facilityTotals, err := processChargesByClinicUHealth(chargesByClinicPath); err == nil {
@@ -350,15 +315,13 @@ func generateProviderIDForFacility(provider string, occurrence int, providerToFa
 	return providerID
 }
 
-func uHealthTransform() ([]byte, error) {
-	fmt.Println("Transforming data...")
-
+func processYearDataUHealth(year string) ([]*Node, error) {
 	// Process provider-facility relationships
 	mergedFacilityProviders := make(map[string]map[string]bool)
 	mergedProviderFacilities := make(map[string][]string)
 
 	for _, month := range months {
-		allDataPath := fmt.Sprintf("data/%s_all_data.csv", month)
+		allDataPath := fmt.Sprintf("data/%s/%s_all_data.csv", year, month)
 		if _, err := os.Stat(allDataPath); os.IsNotExist(err) {
 			continue
 		}
@@ -388,17 +351,17 @@ func uHealthTransform() ([]byte, error) {
 	}
 
 	if len(mergedFacilityProviders) == 0 {
-		return nil, fmt.Errorf("no data found to process")
+		return nil, fmt.Errorf("no data found to process for year %s", year)
 	}
 
 	// Load location mapping
-	locationMapping, err := loadStateDivisionMapping("data/state_division_mapping.csv")
+	locationMapping, err := loadStateDivisionMapping(fmt.Sprintf("data/%s/state_division_mapping.csv", year))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load location mapping: %v", err)
 	}
 
 	// Load all data sources
-	ds, err := loadUHealthDataSources()
+	ds, err := loadUHealthDataSources(year)
 	if err != nil {
 		return nil, err
 	}
@@ -512,5 +475,32 @@ func uHealthTransform() ([]byte, error) {
 
 	items = append([]*Node{allProvidersNode}, items...)
 
-	return json.Marshal(items)
+	return items, nil
+}
+
+func uHealthTransform() ([]byte, error) {
+	years, err := getYearDirectories("data")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get year directories: %w", err)
+	}
+
+	allYearsData := make(map[string][]*Node)
+
+	for _, year := range years {
+		items, err := processYearDataUHealth(year)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process data for year %s: %w", year, err)
+		}
+		allYearsData[year] = items
+	}
+
+	dashboardData := map[string]interface{}{
+		"providerRankings":    map[string]interface{}{},
+		"providerPerformance": allYearsData,
+		"financial":           map[string]interface{}{},
+		"operational":         map[string]interface{}{},
+		"clinical":            map[string]interface{}{},
+	}
+
+	return json.Marshal(dashboardData)
 }

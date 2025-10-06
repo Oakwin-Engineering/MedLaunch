@@ -26,6 +26,7 @@
     "vite": "^7.0.4"
   },
   "dependencies": {
+    "@flowbite-svelte-plugins/chart": "^0.2.4",
     "d3": "^7.9.0"
   }
 }

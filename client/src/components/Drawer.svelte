@@ -52,6 +52,11 @@
 
 <Drawer bind:open={store.isDrawerOpen} placement="left">
   <div class="pt-6 h-full">
+    <img
+      src="/images/{store.customerID}-logo.png"
+      alt=""
+      class="h-12 object-contain ml-4 mb-4"
+    />
     <nav class="space-y-1">
       {#each dashboards as dashboard}
         <button

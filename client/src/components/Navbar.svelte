@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from "flowbite-svelte";
-  import { FilePdfOutline } from "flowbite-svelte-icons";
+  import { FilePdfOutline, BarsOutline } from "flowbite-svelte-icons";
   import { store } from "../store.svelte";
 
   const dashboardNames: Record<string, string> = {
@@ -19,24 +19,19 @@
 <nav
   class="fixed top-0 left-0 right-0 bg-white shadow-md z-100 h-16 flex items-center px-4"
 >
-  <img
-    src="/images/{store.customerID}-logo.png"
-    alt=""
-    class="h-12 object-contain mr-4"
-  />
+  <button
+    type="button"
+    class="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+    onclick={() => (store.isDrawerOpen = !store.isDrawerOpen)}
+  >
+    <BarsOutline class="h-6 w-6" />
+  </button>
 
   <span class="text-xl font-bold text-blue-600">
     {currentDashboardName}
   </span>
 
   <div class="ml-auto flex items-center gap-2">
-    <Button
-      type="button"
-      color="blue"
-      onclick={() => (store.isDrawerOpen = !store.isDrawerOpen)}
-    >
-      All Dashboards
-    </Button>
     <Button type="button" color="blue" onclick={() => window.print()}>
       <FilePdfOutline class="h-6 w-6 mr-1" /> Print
     </Button>

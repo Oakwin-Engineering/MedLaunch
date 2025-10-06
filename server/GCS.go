@@ -58,6 +58,10 @@ func downloadBucket(bucket string) error {
 		// Construct the full local path for the file.
 		localPath := filepath.Join(localDestDir, attrs.Name)
 
+		if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+			return fmt.Errorf("os.MkdirAll for %s: %w", filepath.Dir(localPath), err)
+		}
+
 		// Create the local file
 		f, err := os.Create(localPath)
 		if err != nil {

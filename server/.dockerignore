@@ -1,30 +1,9 @@
-# Version control
+node_modules
+dist
+.env
 .git
 .gitignore
-
-# IDE directories
-.idea
-.vscode
-
-# Binaries and build artifacts
-server
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test files
-*_test.go
-*.test
-
-# Temporary files
-*.tmp
-*.temp
-
-# Log files
-*.log
-
-# Local environment files
-.env
-.env.local
+*.md
+data
+tmp
+.DS_Store

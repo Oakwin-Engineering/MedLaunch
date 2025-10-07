@@ -1,14 +1,43 @@
-# MedLaunch Server
+# MedLaunch Server v2 (TypeScript/Express/Node.js)
 
 ## Overview
 
-This Go project provides utilities for downloading files and folders from Google Cloud Storage (GCS). It is designed to run both locally (for development) and in production (on Google Cloud Run).
+This is a TypeScript/Express/Node.js conversion of the original Go-based MedLaunch server. It provides ETL (Extract, Transform, Load) utilities for downloading files from Google Cloud Storage (GCS), transforming healthcare data, and uploading results back to GCS.
 
 ## Features
 
-- Download individual files or entire folders from GCS buckets
-- Uses the official Google Cloud Storage Go SDK
-- Supports both local development and production deployments
+- Download data from GCS buckets
+- Transform healthcare data for VitalCare and UHealth customers
+- Upload transformed JSON data to GCS
+- RESTful API endpoints for ETL operations
+- TypeScript for type safety
+- Express.js for HTTP server
+
+---
+
+## Prerequisites
+
+- Node.js 18+ and npm
+- Google Cloud SDK (for local development)
+- Access to GCS buckets
+
+---
+
+## Installation
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` and set:
+   - `PROJECT_ID`: Your GCP project ID
+   - `LOG_MODE`: Set to `debug` for verbose logging
+   - `PORT`: Server port (default: 8080)
 
 ---
 
@@ -16,78 +45,178 @@ This Go project provides utilities for downloading files and folders from Google
 
 ### Local Development
 
-To access GCS from your local machine, you must authenticate using the Google Cloud SDK. This ensures your Go application can interact with GCS using your user credentials.
+To access GCS from your local machine, authenticate using the Google Cloud SDK:
 
-**Steps:**
+```bash
+gcloud auth application-default login
+```
 
-1. Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) if you haven't already.
-2. Authenticate your CLI and generate application default credentials:
-   ```sh
-   gcloud auth application-default login
-   ```
-   - This opens a browser window. Log in with your Google account that has access to the GCS bucket.
-   - This creates the credentials file at `~/.config/gcloud/application_default_credentials.json`.
-3. (Optional) Set your active project:
-   ```sh
-   gcloud config set project YOUR_PROJECT_ID
-   ```
+This creates credentials at `~/.config/gcloud/application_default_credentials.json`.
 
 ### Production (Google Cloud Run)
 
-In production, authentication is handled automatically using a [service account](https://cloud.google.com/iam/docs/service-accounts) attached to your Cloud Run service. Make sure the service account has the `roles/storage.objectViewer` (or broader) permissions for your GCS bucket.
-
-**Recommended steps:**
-
-1. Create or select a service account in your GCP project.
-2. Grant it the `Storage Object Viewer` role:
-   ```sh
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:YOUR_SERVICE_ACCOUNT@gcp-project.iam.gserviceaccount.com" \
-     --role="roles/storage.objectViewer"
-   ```
-3. Deploy your Cloud Run service with this service account:
-   ```sh
-   gcloud run deploy YOUR_SERVICE_NAME \
-     --image gcr.io/YOUR_PROJECT_ID/YOUR_IMAGE \
-     --service-account YOUR_SERVICE_ACCOUNT@gcp-project.iam.gserviceaccount.com
-   ```
+In production, authentication is handled automatically using a service account attached to your Cloud Run service. Ensure the service account has the `roles/storage.objectViewer` and `roles/storage.objectCreator` permissions.
 
 ---
 
-## Setup & Running Locally
+## Running the Server
 
-2. **Install dependencies:**
-   ```sh
-   go mod tidy
-   ```
-3. **Authenticate with Google Cloud (see above).**
-4. **Run the project:**
-   ```sh
-   go run .
-   ```
+### Development Mode (with auto-reload)
+```bash
+npm run dev
+```
+
+### Build and Run
+```bash
+npm run build
+npm start
+```
 
 ---
 
-## Environment Variables (Optional)
+## API Endpoints
 
-You can use environment variables to configure bucket names, objects, or credentials for more flexibility.
+### 1. Trigger Full ETL Process
+```
+GET /trigger-etl/:customer-id
+```
+Downloads data from GCS, transforms it, and uploads the result.
+
+**Example:**
+```bash
+curl http://localhost:8080/trigger-etl/vitalcare
+```
+
+### 2. Trigger ETL Test (No Download)
+```
+GET /trigger-etl-test/:customer-id
+```
+Transforms local data and uploads the result (skips download step).
+
+**Example:**
+```bash
+curl http://localhost:8080/trigger-etl-test/vitalcare
+```
+
+### 3. Get Transformed Data
+```
+GET /table-data/:customer-id
+```
+Retrieves the transformed JSON data from GCS.
+
+**Example:**
+```bash
+curl http://localhost:8080/table-data/vitalcare
+```
+
+### 4. Download Data Only
+```
+GET /download-data/:customer-id
+```
+Downloads data from GCS without transformation.
+
+**Example:**
+```bash
+curl http://localhost:8080/download-data/vitalcare
+```
+
+---
+
+## Project Structure
+
+```
+server_v2/
+├── src/
+│   ├── index.ts                 # Main Express server
+│   ├── types/
+│   │   └── common.ts            # TypeScript interfaces and types
+│   ├── services/
+│   │   ├── gcs.ts               # Google Cloud Storage operations
+│   │   └── nameMatching.ts     # Fuzzy name matching logic
+│   ├── etl/
+│   │   ├── etlVitalcare.ts     # VitalCare CSV processing
+│   │   └── etlUhealth.ts       # UHealth CSV processing
+│   └── transformers/
+│       ├── vitalcare.ts         # VitalCare data transformation
+│       └── uhealth.ts           # UHealth data transformation
+├── package.json
+├── tsconfig.json
+├── .env.example
+└── README.md
+```
+
+---
+
+## Data Flow
+
+1. **Download**: Data is downloaded from `{customer}-pretransformed` GCS bucket
+2. **Transform**: CSV files are processed and transformed into hierarchical JSON
+3. **Upload**: Transformed data is uploaded to `{customer}-transformed` GCS bucket
+4. **Cleanup**: Local data directory is removed
+
+---
+
+## Supported Customers
+
+- `vitalcare`: VitalCare healthcare data
+- `uhealth`: UHealth healthcare data
+
+---
+
+## Environment Variables
+
+- `PORT`: Server port (default: 8080)
+- `PROJECT_ID`: GCP project ID for bucket creation
+- `LOG_MODE`: Set to `debug` for detailed logging
+
+---
+
+## Deployment
+
+### Docker Build
+```bash
+docker build -t medlaunch-server .
+docker run -p 8080:8080 medlaunch-server
+```
+
+### Google Cloud Run
+```bash
+gcloud run deploy medlaunch-server \
+  --source . \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+---
+
+## Differences from Go Version
+
+- Uses Express.js instead of Gorilla Mux
+- Uses `csv-parser` for CSV processing
+- Uses `jaro-winkler` for name matching (same algorithm as Go version)
+- Async/await pattern instead of Go's error handling
+- TypeScript for type safety
 
 ---
 
 ## Troubleshooting
 
-- **Permission errors:** Make sure your account or service account has access to the bucket/object.
-- **Authentication errors:** Ensure you have run `gcloud auth application-default login` locally, or that Cloud Run has the correct service account.
-- **SDK not found:** Make sure the Google Cloud SDK is installed and in your `PATH` if using `gcloud` CLI commands.
+- **Permission errors**: Ensure your GCP account has access to the buckets
+- **Authentication errors**: Run `gcloud auth application-default login`
+- **Module not found**: Run `npm install`
+- **Port already in use**: Change the PORT in `.env`
 
 ---
 
 ## References
 
-- [Google Cloud Storage Go SDK](https://pkg.go.dev/cloud.google.com/go/storage)
-- [Google Cloud Authentication Guide](https://cloud.google.com/docs/authentication/getting-started)
-- [Cloud Run Service Accounts](https://cloud.google.com/run/docs/securing/service-identity)
+- [Google Cloud Storage Node.js SDK](https://cloud.google.com/nodejs/docs/reference/storage/latest)
+- [Express.js Documentation](https://expressjs.com/)
+- [TypeScript Documentation](https://www.typescriptlang.org/)
 
 ---
 
-Feel free to reach out or open an issue if you encounter any problems!
+## License
+
+ISC

@@ -143,7 +143,7 @@ func (mb *MetricBuilder) buildNodeData() NodeData {
 		Adjustments:                 createMetric("Adjustments", mb.adjustments, adjustmentsTotal),
 		RVUs:                        createMetric("RVUs", mb.rvus, rvusTotal),
 		Payroll:                     createMetric("Payroll", mb.payroll, payrollTotal),
-		OperatingProfit:             createMetric("Operating Profit Margin", opmValues, opmTotal),
+		OperatingProfit:             createMetric("Operating Profit", opmValues, opmTotal),
 		RvuPerPatient:               createMetric("RVUs per Patient", rvuPerPatient, sumOrAverage(totalVisitsTotal, rvusTotal)),
 		ChargePerPatient:            createMetric("Charges per Patient", chargePerPatient, sumOrAverage(totalVisitsTotal, chargesTotal)),
 		PaymentPercentOfCharges:     createMetric("Payment % of Charges", paymentPercentOfCharges, percentageValue(paymentsTotal, chargesTotal)),

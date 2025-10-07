@@ -95,7 +95,7 @@ func (mb *UHealthMetricBuilder) buildNodeData() NodeData {
 		Charges:                     createMetric("Charges", mb.charges, chargesTotal),
 		Payments:                    createMetric("Payments", mb.collections, collectionsTotal),
 		Payroll:                     createMetric("Payroll", mb.payroll, payrollTotal),
-		OperatingProfit:             createMetric("Operating Profit Margin", opmValues, opmTotal),
+		OperatingProfit:             createMetric("Operating Profit", opmValues, opmTotal),
 		ChargePerPatient:            createMetric("Charges per Patient", chargePerPatient, 0),
 		PaymentPercentOfCharges:     createMetric("Payment % of Charges", paymentPercentOfCharges, 0),
 		AverageReceiptsPerPatient:   createMetric("Average Receipts per Patient", averageReceiptsPerPatient, 0),
@@ -203,6 +203,7 @@ func createProviderNodeUHealth(provider string, ds *UHealthDataSources, namesMap
 
 	for i, month := range months {
 		// Get charges
+
 		if monthData, exists := ds.monthlyProviderTotals[month]; exists {
 			if total, ok := monthData[provider]; ok {
 				builder.charges[i] = total

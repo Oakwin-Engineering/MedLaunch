@@ -44,17 +44,29 @@ export const DropdownItems = [
 ];
 
 export const CPTCodeLabelColors = {
+  // VitalCare categories
   "New Patient": "rgb(222, 234, 255)",
   "Follow Up Patient": "rgb(241, 205, 177)",
   "Nurse Practitioner Well Visit": "rgba(211, 217, 227, 1)",
-  "CPT Coding": "rgb(254, 249, 200)",
   "Medicare Annual Wellness": "rgba(210, 190, 237, 1)",
+  // UHealth categories
+  "Initial Visits": "rgb(255, 247, 153)",
+  "Subsequent Visits": "rgb(241, 205, 177)",
+  Discharge: "rgba(211, 217, 227, 1)",
+  // Common
+  "CPT Coding": "rgb(254, 249, 200)",
 };
 
 export const LabelMapping = {
+  // VitalCare categories
   "New Patient": "patientCountTotal",
   "Follow Up Patient": "followUpPatientTotal",
   "Nurse Practitioner Well Visit": "npWellnessVisitTotal",
-  "CPT Coding": "cptCodingTotal",
   "Medicare Annual Wellness": "medicareAnnualWellnessTotal",
+  // UHealth categories
+  "Initial Visits": "initialVisitsTotal",
+  "Subsequent Visits": "subsequentVisitsTotal",
+  Discharge: "dischargeTotal",
+  // Common
+  "CPT Coding": "cptCodingTotal",
 };

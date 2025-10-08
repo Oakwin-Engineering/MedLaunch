@@ -1,20 +1,23 @@
 // Node represents a facility or provider in the hierarchy
-export interface Node {
+export type Node = {
   id: string;
   label: string;
   iconType: string;
   data: NodeData;
   children?: Node[];
-}
+};
 
 // NodeData holds the structured metrics for a node
-export interface NodeData {
+export type NodeData = {
   cptCodes: CptCodeMetric[];
   cptCodingTotal: Metric;
   totalVisits: Metric;
   patientCountTotal: Metric;
   npWellnessVisitTotal: Metric;
   medicareAnnualWellnessTotal: Metric;
+  initialVisitsTotal: Metric;
+  subsequentVisitsTotal: Metric;
+  dischargeTotal: Metric;
   followUpPatientTotal: Metric;
   charges: Metric;
   payments: Metric;
@@ -27,24 +30,24 @@ export interface NodeData {
   paymentPercentOfCharges: Metric;
   averageReceiptsPerPatient: Metric;
   adjustmentPercentOfCharges: Metric;
-}
+};
 
 // CptCodeMetric represents a CPT code's metrics
-export interface CptCodeMetric {
+export type CptCodeMetric = {
   code: string;
   values: number[];
   total: number;
   coding: string;
   label: string;
-}
+};
 
 // Metric represents a single metric with a label, values, total, and coding
-export interface Metric {
+export type Metric = {
   label: string;
   values: number[];
   total: number;
   coding: string;
-}
+};
 
 // Array of months used for data processing
 export const MONTHS = [

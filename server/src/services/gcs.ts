@@ -50,7 +50,7 @@ export async function downloadBucket(bucketName: string): Promise<void> {
 export async function uploadFileToBucket(
   bucketName: string,
   objectName: string,
-  data: Buffer
+  data: object
 ): Promise<void> {
   const bucket = storage.bucket(bucketName);
 
@@ -70,7 +70,7 @@ export async function uploadFileToBucket(
 
   // Upload the object
   const file = bucket.file(objectName);
-  await file.save(data, {
+  await file.save(JSON.stringify(data), {
     contentType: "application/json",
   });
 

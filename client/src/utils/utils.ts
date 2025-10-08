@@ -101,10 +101,15 @@ export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
 
   const order = [
     "CPT Coding",
+    // VitalCare categories
     "New Patient",
     "Follow Up Patient",
     "Nurse Practitioner Well Visit",
     "Medicare Annual Wellness",
+    // UHealth categories
+    "Initial Visits",
+    "Subsequent Visits",
+    "Discharge",
   ];
 
   const ordered = Object.entries(groups)
@@ -112,7 +117,22 @@ export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
       label,
       rows,
     }))
-    .sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+    .sort((a, b) => {
+      const indexA = order.indexOf(a.label);
+      const indexB = order.indexOf(b.label);
+
+      // If both are in the order array, sort by their position
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+
+      // If only one is in the order array, prioritize it
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+
+      // If neither is in the order array, sort alphabetically
+      return a.label.localeCompare(b.label);
+    });
 
   return ordered;
 };

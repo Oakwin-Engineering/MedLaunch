@@ -2,10 +2,10 @@ import fs from "fs";
 import csv from "csv-parser";
 import { MONTHS, contains } from "../types/common";
 
-export interface LocationMapping {
+export type LocationMapping = {
   state: string;
   division: string;
-}
+};
 
 /**
  * Loads state-division mapping from CSV

@@ -1,16 +1,16 @@
 // Name represents a parsed name with first, last, and middle parts
-interface Name {
+type Name = {
   first: string;
   last: string;
   middle: string;
-}
+};
 
 // Match represents a potential match between two names, with a similarity score
-interface Match {
+type Match = {
   name1: string;
   name2: string;
   jaroScore: number;
-}
+};
 
 /**
  * Calculates the Jaro similarity between two strings

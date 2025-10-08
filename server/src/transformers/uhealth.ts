@@ -27,9 +27,26 @@ import {
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 
-const CPT_CODE_MAPPING_UHEALTH: Record<string, string> = {};
+const CPT_CODE_MAPPING_UHEALTH: Record<string, string> = {
+  "99304": "Initial Visits",
+  "99305": "Initial Visits",
+  "99306": "Initial Visits",
+  "99307": "Subsequent Visits",
+  "99308": "Subsequent Visits",
+  "99309": "Subsequent Visits",
+  "99310": "Subsequent Visits",
+  "99315": "Discharge",
+  "99316": "Discharge",
+};
 
-interface UHealthDataSources {
+const CPT_CATEGORIES_UHEALTH: Record<string, string> = {
+  "Initial Visits": "InitialVisitsTotal",
+  "Subsequent Visits": "SubsequentVisitsTotal",
+  Discharge: "DischargeTotal",
+  "CPT Coding": "CPTCodingTotal",
+};
+
+type UHealthDataSources = {
   monthlyFacilityTotals: Record<string, Record<string, number>>;
   monthlyProviderTotals: Record<string, Record<string, number>>;
   monthlyFacilityCollections: Record<string, Record<string, number>>;
@@ -39,7 +56,7 @@ interface UHealthDataSources {
   monthlyProviderVisits: Record<string, Record<string, number>>;
   monthlyProviderPayrolls: Record<string, Record<string, number>>;
   uniqueADPProviderNames: string[];
-}
+};
 
 class UHealthMetricBuilder {
   charges: number[] = new Array(12).fill(0);
@@ -69,7 +86,6 @@ class UHealthMetricBuilder {
   buildNodeData(): NodeData {
     const chargesTotal = sum(this.charges);
     const collectionsTotal = sum(this.collections);
-    const visitsTotal = sum(this.visits);
     const payrollTotal = sum(this.payroll);
 
     const opmValues = new Array(12).fill(0);
@@ -80,22 +96,26 @@ class UHealthMetricBuilder {
     }
     const opmTotal = sum(opmValues);
 
-    const chargePerPatient = divideArrays(this.charges, this.visits);
+    const { cptMetrics, categoryTotals, totalVisits } = this.buildCPTMetrics();
+    const visitsTotal = sum(totalVisits);
+
+    const chargePerPatient = divideArrays(this.charges, totalVisits);
     const paymentPercentOfCharges = percentageArrays(
       this.collections,
       this.charges
     );
     const averageReceiptsPerPatient = divideArrays(
       this.collections,
-      this.visits
+      totalVisits
     );
-
-    const { cptMetrics, totalMetric } = this.buildCPTMetrics();
 
     return {
       cptCodes: cptMetrics,
-      cptCodingTotal: totalMetric,
-      totalVisits: createMetric("Total Visits", this.visits, visitsTotal),
+      cptCodingTotal: categoryTotals.CPTCodingTotal,
+      initialVisitsTotal: categoryTotals.InitialVisitsTotal,
+      subsequentVisitsTotal: categoryTotals.SubsequentVisitsTotal,
+      dischargeTotal: categoryTotals.DischargeTotal,
+      totalVisits: createMetric("Total Visits", totalVisits, visitsTotal),
       charges: createMetric("Charges", this.charges, chargesTotal),
       payments: createMetric("Payments", this.collections, collectionsTotal),
       payroll: createMetric("Payroll", this.payroll, payrollTotal),
@@ -103,17 +123,17 @@ class UHealthMetricBuilder {
       chargePerPatient: createMetric(
         "Charges per Patient",
         chargePerPatient,
-        0
+        sumOrAverage(visitsTotal, chargesTotal)
       ),
       paymentPercentOfCharges: createMetric(
         "Payment % of Charges",
         paymentPercentOfCharges,
-        0
+        percentageValue(collectionsTotal, chargesTotal)
       ),
       averageReceiptsPerPatient: createMetric(
         "Average Receipts per Patient",
         averageReceiptsPerPatient,
-        0
+        sumOrAverage(visitsTotal, collectionsTotal)
       ),
       rvuPerPatient: createMetric("RVUs per Patient", [], 0),
       adjustments: createMetric("Adjustments", [], 0),
@@ -130,39 +150,81 @@ class UHealthMetricBuilder {
     };
   }
 
-  buildCPTMetrics(): { cptMetrics: CptCodeMetric[]; totalMetric: Metric } {
-    let totalVisitsSum = 0;
-    for (const values of Object.values(this.codes)) {
-      totalVisitsSum += sum(values);
+  buildCPTMetrics(): {
+    cptMetrics: CptCodeMetric[];
+    categoryTotals: Record<string, Metric>;
+    totalVisits: number[];
+  } {
+    const metrics: CptCodeMetric[] = [];
+    const categoryValues: Record<string, number[]> = {};
+    const totalVisitsByMonth = new Array(12).fill(0);
+
+    for (const category of Object.values(CPT_CATEGORIES_UHEALTH)) {
+      categoryValues[category] = new Array(12).fill(0);
     }
 
-    const metrics: CptCodeMetric[] = [];
-    const totalVisitsByMonth = new Array(12).fill(0);
+    // First pass: calculate category values and totals
+    const categoryTotalSums: Record<string, number> = {};
+    for (const category of Object.values(CPT_CATEGORIES_UHEALTH)) {
+      categoryTotalSums[category] = 0;
+    }
 
     for (const [code, values] of Object.entries(this.codes)) {
       const codeTotal = sum(values);
 
-      for (let i = 0; i < 12; i++) {
-        totalVisitsByMonth[i] += values[i];
+      const label = CPT_CODE_MAPPING_UHEALTH[code] || "CPT Coding";
+      const category = CPT_CATEGORIES_UHEALTH[label];
+
+      if (category) {
+        for (let i = 0; i < 12; i++) {
+          categoryValues[category][i] += values[i];
+        }
+        categoryTotalSums[category] += codeTotal;
+
+        // Only add to totalVisitsByMonth if it's NOT "CPT Coding"
+        if (label !== "CPT Coding") {
+          for (let i = 0; i < 12; i++) {
+            totalVisitsByMonth[i] += values[i];
+          }
+        }
       }
+    }
+
+    // Second pass: create metrics with category-specific percentages
+    for (const [code, values] of Object.entries(this.codes)) {
+      const codeTotal = sum(values);
 
       const label = CPT_CODE_MAPPING_UHEALTH[code] || "CPT Coding";
+      const category = CPT_CATEGORIES_UHEALTH[label];
+
+      // Calculate percentage within the category
+      const categoryTotal = category ? categoryTotalSums[category] : 0;
+      const codingPercentage = formatPercentage(codeTotal, categoryTotal);
 
       metrics.push({
         code,
         values,
         total: codeTotal,
-        coding: formatPercentage(codeTotal, totalVisitsSum),
+        coding: codingPercentage,
         label,
       });
     }
 
-    const totalMetric = createMetric(
-      "Total",
-      totalVisitsByMonth,
-      totalVisitsSum
-    );
-    return { cptMetrics: metrics, totalMetric };
+    const categoryTotals: Record<string, Metric> = {};
+
+    for (const key of Object.values(CPT_CATEGORIES_UHEALTH)) {
+      categoryTotals[key] = createMetric(
+        "Total",
+        categoryValues[key],
+        sum(categoryValues[key])
+      );
+    }
+
+    return {
+      cptMetrics: metrics,
+      categoryTotals,
+      totalVisits: totalVisitsByMonth,
+    };
   }
 }
 
@@ -565,7 +627,7 @@ async function processYearDataUHealth(year: string): Promise<Node[]> {
   return items;
 }
 
-export async function uHealthTransform(): Promise<Buffer> {
+export async function uHealthTransform(): Promise<object> {
   const years = await getYearDirectories("data");
 
   const allYearsData: Record<string, Node[]> = {};
@@ -587,7 +649,7 @@ export async function uHealthTransform(): Promise<Buffer> {
     clinical: {},
   };
 
-  return Buffer.from(JSON.stringify(dashboardData));
+  return dashboardData;
 }
 
 // Helper functions
@@ -614,4 +676,12 @@ function percentageArrays(
 
 function formatPercentage(value: number, total: number): string {
   return total > 0 ? `${((value / total) * 100).toFixed(2)}%` : "0.00%";
+}
+
+function percentageValue(numerator: number, denominator: number): number {
+  return denominator > 0 ? (numerator / denominator) * 100 : 0;
+}
+
+function sumOrAverage(divisor: number, numerator: number): number {
+  return divisor > 0 ? numerator / divisor : 0;
 }

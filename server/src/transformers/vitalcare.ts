@@ -55,7 +55,7 @@ const CPT_CATEGORIES: Record<string, string> = {
   "CPT Coding": "CPTCodingTotal",
 };
 
-interface DataSources {
+type DataSources = {
   units: Record<string, Record<string, Record<string, number>>>;
   charges: Record<string, Record<string, Record<string, number>>>;
   payments: Record<string, Record<string, Record<string, number>>>;
@@ -66,7 +66,7 @@ interface DataSources {
   payroll: Record<string, Record<string, number>>;
   uniquePaylocityProviders: string[];
   providerMetrics: Record<string, Record<string, number>>;
-}
+};
 
 class MetricBuilder {
   charges: number[] = new Array(12).fill(0);
@@ -184,11 +184,6 @@ class MetricBuilder {
     cptMetrics: CptCodeMetric[];
     categoryTotals: Record<string, Metric>;
   } {
-    let cptUnitsTotalSum = 0;
-    for (const data of Object.values(this.cptData)) {
-      cptUnitsTotalSum += sum(data.units);
-    }
-
     const metrics: CptCodeMetric[] = [];
     const categoryValues: Record<string, number[]> = {};
     const totalVisitsByMonth = new Array(12).fill(0);
@@ -197,35 +192,49 @@ class MetricBuilder {
       categoryValues[category] = new Array(12).fill(0);
     }
 
+    // First pass: calculate category values and totals
+    const categoryTotalSums: Record<string, number> = {};
+    for (const category of Object.values(CPT_CATEGORIES)) {
+      categoryTotalSums[category] = 0;
+    }
+
     for (const [code, data] of Object.entries(this.cptData)) {
       const units = data.units;
       const unitsTotal = sum(units);
 
-      for (let i = 0; i < 12; i++) {
-        totalVisitsByMonth[i] += units[i];
-      }
-
       let label = CPT_CODE_MAPPING_VITALCARE[code] || "CPT Coding";
-
       const category = CPT_CATEGORIES[label];
+
       if (category) {
         for (let i = 0; i < 12; i++) {
           categoryValues[category][i] += units[i];
         }
+        categoryTotalSums[category] += unitsTotal;
       }
+    }
+
+    // Second pass: create metrics with category-specific percentages
+    for (const [code, data] of Object.entries(this.cptData)) {
+      const units = data.units;
+      const unitsTotal = sum(units);
+
+      let label = CPT_CODE_MAPPING_VITALCARE[code] || "CPT Coding";
+      const category = CPT_CATEGORIES[label];
+
+      // Calculate percentage within the category
+      const categoryTotal = category ? categoryTotalSums[category] : 0;
+      const codingPercentage = formatPercentage(unitsTotal, categoryTotal);
 
       metrics.push({
         code,
         values: units,
         total: unitsTotal,
-        coding: formatPercentage(unitsTotal, cptUnitsTotalSum),
+        coding: codingPercentage,
         label,
       });
     }
 
-    const categoryTotals: Record<string, Metric> = {
-      Total: createMetric("Total", totalVisitsByMonth, sum(totalVisitsByMonth)),
-    };
+    const categoryTotals: Record<string, Metric> = {};
 
     for (const key of Object.values(CPT_CATEGORIES)) {
       categoryTotals[key] = createMetric(
@@ -298,12 +307,12 @@ async function loadDataSources(year: string): Promise<DataSources> {
 
 function aggregateProviderMetrics(
   ds: {
-    rvus: Record<string, Record<string, number>>;
-    units: Record<string, Record<string, Record<string, number>>>;
+    rvus;
+    units;
   },
-  monthlyPatientCount: Record<string, Record<string, number>>
+  monthlyPatientCount
 ): Record<string, Record<string, number>> {
-  const providerMetrics: Record<string, Record<string, number>> = {
+  const providerMetrics = {
     PatientCount: {},
     RVUs: {},
     SleepStudy: {},
@@ -370,6 +379,12 @@ function processProviderFinancials(
         if (val !== 0) {
           cptUnitsValues[i] = val;
           dataFound = true;
+
+          // Calculate totalVisits from CPT units, excluding "CPT Coding"
+          const label = CPT_CODE_MAPPING_VITALCARE[cptCode] || "CPT Coding";
+          if (label !== "CPT Coding") {
+            builder.totalVisits[i] += val;
+          }
         }
       }
 
@@ -418,10 +433,6 @@ function processProviderRVUsAndVisits(
 
     if (ds.rvus[month]?.[providerName]) {
       builder.rvus[i] = ds.rvus[month][providerName];
-    }
-
-    if (ds.totalVisits[month]?.[providerName]) {
-      builder.totalVisits[i] = ds.totalVisits[month][providerName];
     }
   }
 }
@@ -606,7 +617,7 @@ async function processYearData(dataSources: DataSources): Promise<Node[]> {
   return items;
 }
 
-export async function vitalCareTransform(): Promise<Buffer> {
+export async function vitalCareTransform(): Promise<object> {
   const years = await getYearDirectories("data");
 
   const accountsReceivable = await processAccountsReceivable(
@@ -614,10 +625,7 @@ export async function vitalCareTransform(): Promise<Buffer> {
   );
 
   const allYearsData: Record<string, Node[]> = {};
-  const allYearsProviderMetrics: Record<
-    string,
-    Record<string, Record<string, number>>
-  > = {};
+  const allYearsProviderMetrics = {};
 
   for (const year of years) {
     const dataSources = await loadDataSources(year);
@@ -634,7 +642,7 @@ export async function vitalCareTransform(): Promise<Buffer> {
     operational: {},
   };
 
-  return Buffer.from(JSON.stringify(dashboardData));
+  return dashboardData;
 }
 
 // Helper functions

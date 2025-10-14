@@ -106,6 +106,10 @@ export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
     "Follow Up Patient",
     "Nurse Practitioner Well Visit",
     "Medicare Annual Wellness",
+    "Transitional Care Management",
+    "Allergy Tests",
+    "Medicare Add-on",
+    "Depression Screening (PHQ2 & PHQ9)",
     // UHealth categories
     "Initial Visits",
     "Subsequent Visits",

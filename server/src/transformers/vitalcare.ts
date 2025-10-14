@@ -35,8 +35,14 @@ const CPT_CODE_MAPPING_VITALCARE: Record<string, string> = {
   "99395": "Nurse Practitioner Well Visit",
   "99396": "Nurse Practitioner Well Visit",
   "99397": "Nurse Practitioner Well Visit",
-  "99495": "Medicare Annual Wellness",
-  "99496": "Medicare Annual Wellness",
+  G0439: "Medicare Annual Wellness",
+  G0438: "Medicare Annual Wellness",
+  G0402: "Medicare Annual Wellness",
+  "99495": "Transitional Care Management",
+  "99496": "Transitional Care Management",
+  "95004": "Allergy Tests",
+  G2211: "Medicare Add-on",
+  "96127": "Depression Screening (PHQ2 & PHQ9)",
 };
 
 const SLEEP_STUDY_CPT: Record<string, boolean> = {
@@ -52,6 +58,10 @@ const CPT_CATEGORIES: Record<string, string> = {
   "Follow Up Patient": "FollowUpPatientTotal",
   "Nurse Practitioner Well Visit": "NPWellnessVisitTotal",
   "Medicare Annual Wellness": "MedicareAnnualWellnessTotal",
+  "Transitional Care Management": "TransitionalCareManagementTotal",
+  "Allergy Tests": "AllergyTestsTotal",
+  "Medicare Add-on": "MedicareAddOnTotal",
+  "Depression Screening (PHQ2 & PHQ9)": "DepressionScreeningTotal",
   "CPT Coding": "CPTCodingTotal",
 };
 
@@ -141,6 +151,11 @@ class MetricBuilder {
       patientCountTotal: categoryTotals.PatientCountTotal,
       npWellnessVisitTotal: categoryTotals.NPWellnessVisitTotal,
       medicareAnnualWellnessTotal: categoryTotals.MedicareAnnualWellnessTotal,
+      transitionalCareManagementTotal:
+        categoryTotals.TransitionalCareManagementTotal,
+      allergyTestsTotal: categoryTotals.AllergyTestsTotal,
+      medicareAddOnTotal: categoryTotals.MedicareAddOnTotal,
+      depressionScreeningTotal: categoryTotals.DepressionScreeningTotal,
       followUpPatientTotal: categoryTotals.FollowUpPatientTotal,
       charges: createMetric("Charges", this.charges, chargesTotal),
       payments: createMetric("Payments", this.payments, paymentsTotal),
@@ -624,20 +639,21 @@ export async function vitalCareTransform(): Promise<object> {
     "data/accounts_receivable.csv"
   );
 
-  const allYearsData: Record<string, Node[]> = {};
+  const allYearsProviderPerformance: Record<string, Node[]> = {};
+  const allYearsOperational = {};
   const allYearsProviderMetrics = {};
 
   for (const year of years) {
     const dataSources = await loadDataSources(year);
     const items = await processYearData(dataSources);
 
-    allYearsData[year] = items;
+    allYearsProviderPerformance[year] = items;
     allYearsProviderMetrics[year] = dataSources.providerMetrics;
   }
 
   const dashboardData = {
     providerRankings: allYearsProviderMetrics,
-    providerPerformance: allYearsData,
+    providerPerformance: allYearsProviderPerformance,
     financial: accountsReceivable,
     operational: {},
   };

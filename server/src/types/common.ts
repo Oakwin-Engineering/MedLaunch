@@ -14,10 +14,14 @@ export type NodeData = {
   totalVisits: Metric;
   patientCountTotal: Metric;
   npWellnessVisitTotal: Metric;
-  medicareAnnualWellnessTotal: Metric;
-  initialVisitsTotal: Metric;
-  subsequentVisitsTotal: Metric;
-  dischargeTotal: Metric;
+  medicareAnnualWellnessTotal?: Metric;
+  transitionalCareManagementTotal?: Metric;
+  allergyTestsTotal?: Metric;
+  medicareAddOnTotal?: Metric;
+  depressionScreeningTotal?: Metric;
+  initialVisitsTotal?: Metric;
+  subsequentVisitsTotal?: Metric;
+  dischargeTotal?: Metric;
   followUpPatientTotal: Metric;
   charges: Metric;
   payments: Metric;

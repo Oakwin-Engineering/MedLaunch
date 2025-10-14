@@ -49,6 +49,10 @@ export const CPTCodeLabelColors = {
   "Follow Up Patient": "rgb(241, 205, 177)",
   "Nurse Practitioner Well Visit": "rgba(211, 217, 227, 1)",
   "Medicare Annual Wellness": "rgba(210, 190, 237, 1)",
+  "Transitional Care Management": "rgba(173, 216, 230, 1)",
+  "Allergy Tests": "rgba(255, 218, 185, 1)",
+  "Medicare Add-on": "rgba(221, 160, 221, 1)",
+  "Depression Screening (PHQ2 & PHQ9)": "rgba(176, 224, 230, 1)",
   // UHealth categories
   "Initial Visits": "rgb(255, 247, 153)",
   "Subsequent Visits": "rgb(241, 205, 177)",
@@ -63,6 +67,10 @@ export const LabelMapping = {
   "Follow Up Patient": "followUpPatientTotal",
   "Nurse Practitioner Well Visit": "npWellnessVisitTotal",
   "Medicare Annual Wellness": "medicareAnnualWellnessTotal",
+  "Transitional Care Management": "transitionalCareManagementTotal",
+  "Allergy Tests": "allergyTestsTotal",
+  "Medicare Add-on": "medicareAddOnTotal",
+  "Depression Screening (PHQ2 & PHQ9)": "depressionScreeningTotal",
   // UHealth categories
   "Initial Visits": "initialVisitsTotal",
   "Subsequent Visits": "subsequentVisitsTotal",

@@ -649,19 +649,27 @@ export async function vitalCareTransform(): Promise<object> {
 
     allYearsProviderPerformance[year] = items;
     allYearsProviderMetrics[year] = dataSources.providerMetrics;
+
+    // Extract monthly operational data from "All Providers" node
+    const allProvidersNode = items.find((node) => node.id === "all-providers");
+    if (allProvidersNode) {
+      allYearsOperational[year] = {
+        totalVisits: allProvidersNode.data.totalVisits.values,
+        charges: allProvidersNode.data.charges.values,
+        rvus: allProvidersNode.data.rvus.values,
+      };
+    }
   }
 
   const dashboardData = {
     providerRankings: allYearsProviderMetrics,
     providerPerformance: allYearsProviderPerformance,
     financial: accountsReceivable,
-    operational: {},
+    operational: allYearsOperational,
   };
 
   return dashboardData;
 }
-
-// Helper functions
 function createMetric(label: string, values: number[], total: number): Metric {
   return { label, values, total, coding: "-" };
 }

@@ -1,5 +1,4 @@
-import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getStorage } from "firebase-admin/storage";
 import fs from "fs";
 import path from "path";
@@ -11,6 +10,7 @@ const rmdir = promisify(fs.rm);
 // Initialize Firebase Admin with Application Default Credentials
 initializeApp({
   storageBucket: "medlaunch-8f4c7.firebasestorage.app",
+  credential: applicationDefault(),
 });
 
 const bucket = getStorage().bucket();

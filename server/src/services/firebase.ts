@@ -8,11 +8,8 @@ import { promisify } from "util";
 const mkdir = promisify(fs.mkdir);
 const rmdir = promisify(fs.rm);
 
-// Initialize Firebase Admin
-const serviceAccount = require("../../medlaunch-8f4c7-firebase-adminsdk-fbsvc-71dc87bf72.json");
-
+// Initialize Firebase Admin with Application Default Credentials
 initializeApp({
-  credential: cert(serviceAccount),
   storageBucket: "medlaunch-8f4c7.firebasestorage.app",
 });
 
@@ -84,9 +81,7 @@ export async function uploadToFirestore(
       },
     });
 
-    console.log(
-      `Uploaded data to Firebase Storage: ${fileName}`
-    );
+    console.log(`Uploaded data to Firebase Storage: ${fileName}`);
   } catch (err) {
     throw new Error(`Failed to upload to Firebase Storage: ${err}`);
   }

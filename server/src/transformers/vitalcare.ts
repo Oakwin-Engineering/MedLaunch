@@ -1,8 +1,22 @@
 import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
-import { Node, NodeData, Metric, CptCodeMetric, MONTHS } from "../types/common";
-import { slugify } from "../types/common";
+import {
+  Node,
+  NodeData,
+  Metric,
+  CptCodeMetric,
+  MONTHS,
+  slugify,
+  createMetric,
+  sum,
+  divideArrays,
+  percentageArrays,
+  percentageValue,
+  sumOrAverage,
+  formatPercentage,
+  sortNodes,
+} from "../types/common";
 import { matchNames } from "../services/nameMatching";
 import {
   processUnitsVitalCare,
@@ -31,10 +45,10 @@ const CPT_CODE_MAPPING_VITALCARE: Record<string, string> = {
   "99213": "Follow Up Patient",
   "99214": "Follow Up Patient",
   "99215": "Follow Up Patient",
-  "99394": "Nurse Practitioner Well Visit",
-  "99395": "Nurse Practitioner Well Visit",
-  "99396": "Nurse Practitioner Well Visit",
-  "99397": "Nurse Practitioner Well Visit",
+  "99394": "New Patient Wellness Visits",
+  "99395": "New Patient Wellness Visits",
+  "99396": "New Patient Wellness Visits",
+  "99397": "New Patient Wellness Visits",
   G0439: "Medicare Annual Wellness",
   G0438: "Medicare Annual Wellness",
   G0402: "Medicare Annual Wellness",
@@ -56,7 +70,7 @@ const G2211 = "G2211";
 const CPT_CATEGORIES: Record<string, string> = {
   "New Patient": "PatientCountTotal",
   "Follow Up Patient": "FollowUpPatientTotal",
-  "Nurse Practitioner Well Visit": "NPWellnessVisitTotal",
+  "New Patient Well Visits": "NPWellnessVisitTotal",
   "Medicare Annual Wellness": "MedicareAnnualWellnessTotal",
   "Transitional Care Management": "TransitionalCareManagementTotal",
   "Allergy Tests": "AllergyTestsTotal",
@@ -301,11 +315,6 @@ async function loadDataSources(year: string): Promise<DataSources> {
     payrollFile
   );
 
-  const providerMetrics = aggregateProviderMetrics(
-    { rvus, units },
-    monthlyPatientCount
-  );
-
   return {
     units,
     charges,
@@ -316,7 +325,7 @@ async function loadDataSources(year: string): Promise<DataSources> {
     totalVisits,
     payroll,
     uniquePaylocityProviders: uniqueEmployees,
-    providerMetrics,
+    providerMetrics: {}, // Will be calculated in post-processing
   };
 }
 
@@ -632,81 +641,120 @@ async function processYearData(dataSources: DataSources): Promise<Node[]> {
   return items;
 }
 
+/**
+ * Post-process provider rankings from provider performance items
+ * Extracts metrics by traversing the node hierarchy
+ */
+function calculateProviderRankings(
+  items: Node[]
+): Record<string, Record<string, number>> {
+  const providerMetrics = {
+    PatientCount: {},
+    RVUs: {},
+    SleepStudy: {},
+    G2211: {},
+  };
+
+  // Traverse location nodes to find provider children
+  for (const item of items) {
+    // This is a location node, process its children (providers)
+    if (item.children && item.children.length > 0) {
+      for (const provider of item.children) {
+        const providerName = provider.label;
+
+        // Aggregate patient count from totalVisits
+        providerMetrics.PatientCount[providerName] =
+          provider.data.totalVisits.total;
+
+        // Aggregate RVUs
+        providerMetrics.RVUs[providerName] = provider.data.rvus.total;
+
+        // Aggregate Sleep Study CPTs
+        let sleepStudyTotal = 0;
+        for (const cptCode of provider.data.cptCodes) {
+          if (SLEEP_STUDY_CPT[cptCode.code]) {
+            sleepStudyTotal += cptCode.total;
+          }
+        }
+        if (sleepStudyTotal > 0) {
+          providerMetrics.SleepStudy[providerName] = sleepStudyTotal;
+        }
+
+        // Aggregate G2211 CPTs
+        const g2211Cpt = provider.data.cptCodes.find(
+          (cpt) => cpt.code === G2211
+        );
+        if (g2211Cpt && g2211Cpt.total > 0) {
+          providerMetrics.G2211[providerName] = g2211Cpt.total;
+        }
+      }
+    }
+  }
+
+  return providerMetrics;
+}
+
+/**
+ * Post-process operational dashboard from provider performance items
+ */
+function calculateOperational(items: Node[]): {
+  totalVisits: number[];
+  charges: number[];
+  rvus: number[];
+  sleepStudy: number[];
+} | null {
+  const allProvidersNode = items.find((node) => node.id === "all-providers");
+  if (!allProvidersNode) {
+    return null;
+  }
+
+  // Calculate sleep study values by aggregating sleep study CPT codes
+  const sleepStudyValues = new Array(12).fill(0);
+  for (const cptCode of allProvidersNode.data.cptCodes) {
+    if (SLEEP_STUDY_CPT[cptCode.code]) {
+      for (let i = 0; i < 12; i++) {
+        sleepStudyValues[i] += cptCode.values[i];
+      }
+    }
+  }
+
+  return {
+    totalVisits: allProvidersNode.data.totalVisits.values,
+    charges: allProvidersNode.data.charges.values,
+    rvus: allProvidersNode.data.rvus.values,
+    sleepStudy: sleepStudyValues,
+  };
+}
+
 export async function vitalCareTransform(): Promise<object> {
   const years = await getYearDirectories("data");
 
-  const accountsReceivable = await processAccountsReceivable(
-    "data/accounts_receivable.csv"
-  );
-
   const allYearsProviderPerformance: Record<string, Node[]> = {};
   const allYearsOperational = {};
-  const allYearsProviderMetrics = {};
+  const allYearsProviderRankings = {};
 
   for (const year of years) {
     const dataSources = await loadDataSources(year);
     const items = await processYearData(dataSources);
 
+    // Store provider performance (main calculation)
     allYearsProviderPerformance[year] = items;
-    allYearsProviderMetrics[year] = dataSources.providerMetrics;
 
-    // Extract monthly operational data from "All Providers" node
-    const allProvidersNode = items.find((node) => node.id === "all-providers");
-    if (allProvidersNode) {
-      allYearsOperational[year] = {
-        totalVisits: allProvidersNode.data.totalVisits.values,
-        charges: allProvidersNode.data.charges.values,
-        rvus: allProvidersNode.data.rvus.values,
-      };
-    }
+    // Post-process other dashboards from items
+    allYearsProviderRankings[year] = calculateProviderRankings(items);
+    allYearsOperational[year] = calculateOperational(items);
   }
 
+  const accountsReceivable = await processAccountsReceivable(
+    "data/accounts_receivable.csv"
+  );
+
   const dashboardData = {
-    providerRankings: allYearsProviderMetrics,
+    providerRankings: allYearsProviderRankings,
     providerPerformance: allYearsProviderPerformance,
     financial: accountsReceivable,
     operational: allYearsOperational,
   };
 
   return dashboardData;
-}
-function createMetric(label: string, values: number[], total: number): Metric {
-  return { label, values, total, coding: "-" };
-}
-
-function sum(values: number[]): number {
-  return values.reduce((acc, v) => acc + v, 0);
-}
-
-function divideArrays(numerator: number[], denominator: number[]): number[] {
-  return numerator.map((n, i) => (denominator[i] > 0 ? n / denominator[i] : 0));
-}
-
-function percentageArrays(
-  numerator: number[],
-  denominator: number[]
-): number[] {
-  return numerator.map((n, i) =>
-    denominator[i] > 0 ? (n / denominator[i]) * 100 : 0
-  );
-}
-
-function percentageValue(numerator: number, denominator: number): number {
-  return denominator > 0 ? (numerator / denominator) * 100 : 0;
-}
-
-function sumOrAverage(divisor: number, numerator: number): number {
-  return divisor > 0 ? numerator / divisor : 0;
-}
-
-function formatPercentage(value: number, total: number): string {
-  return total > 0 ? `${((value / total) * 100).toFixed(2)}%` : "0.00%";
-}
-
-function sortNodes(items: Node[]): void {
-  items.sort((a, b) => {
-    if (a.label === "All Providers") return -1;
-    if (b.label === "All Providers") return 1;
-    return a.label.localeCompare(b.label);
-  });
 }

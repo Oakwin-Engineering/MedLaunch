@@ -88,3 +88,44 @@ export function getBucketName(customerId: string): string {
   }
   throw new Error(`Invalid customer ID: ${customerId}`);
 }
+
+export function createMetric(label: string, values: number[], total: number): Metric {
+  return { label, values, total, coding: "-" };
+}
+
+export function sum(values: number[]): number {
+  return values.reduce((acc, v) => acc + v, 0);
+}
+
+export function divideArrays(numerator: number[], denominator: number[]): number[] {
+  return numerator.map((n, i) => (denominator[i] > 0 ? n / denominator[i] : 0));
+}
+
+export function percentageArrays(
+  numerator: number[],
+  denominator: number[]
+): number[] {
+  return numerator.map((n, i) =>
+    denominator[i] > 0 ? (n / denominator[i]) * 100 : 0
+  );
+}
+
+export function percentageValue(numerator: number, denominator: number): number {
+  return denominator > 0 ? (numerator / denominator) * 100 : 0;
+}
+
+export function sumOrAverage(divisor: number, numerator: number): number {
+  return divisor > 0 ? numerator / divisor : 0;
+}
+
+export function formatPercentage(value: number, total: number): string {
+  return total > 0 ? `${((value / total) * 100).toFixed(2)}%` : "0.00%";
+}
+
+export function sortNodes(items: Node[]): void {
+  items.sort((a, b) => {
+    if (a.label === "All Providers") return -1;
+    if (b.label === "All Providers") return 1;
+    return a.label.localeCompare(b.label);
+  });
+}

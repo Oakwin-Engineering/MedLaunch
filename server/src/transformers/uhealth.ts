@@ -8,8 +8,15 @@ import {
   CptCodeMetric,
   MONTHS,
   contains,
+  slugify,
+  createMetric,
+  sum,
+  divideArrays,
+  percentageArrays,
+  percentageValue,
+  sumOrAverage,
+  formatPercentage,
 } from "../types/common";
-import { slugify } from "../types/common";
 import { matchNames } from "../services/nameMatching";
 import {
   loadStateDivisionMapping,
@@ -650,38 +657,4 @@ export async function uHealthTransform(): Promise<object> {
   };
 
   return dashboardData;
-}
-
-// Helper functions
-function createMetric(label: string, values: number[], total: number): Metric {
-  return { label, values, total, coding: "-" };
-}
-
-function sum(values: number[]): number {
-  return values.reduce((acc, v) => acc + v, 0);
-}
-
-function divideArrays(numerator: number[], denominator: number[]): number[] {
-  return numerator.map((n, i) => (denominator[i] > 0 ? n / denominator[i] : 0));
-}
-
-function percentageArrays(
-  numerator: number[],
-  denominator: number[]
-): number[] {
-  return numerator.map((n, i) =>
-    denominator[i] > 0 ? (n / denominator[i]) * 100 : 0
-  );
-}
-
-function formatPercentage(value: number, total: number): string {
-  return total > 0 ? `${((value / total) * 100).toFixed(2)}%` : "0.00%";
-}
-
-function percentageValue(numerator: number, denominator: number): number {
-  return denominator > 0 ? (numerator / denominator) * 100 : 0;
-}
-
-function sumOrAverage(divisor: number, numerator: number): number {
-  return divisor > 0 ? numerator / divisor : 0;
 }

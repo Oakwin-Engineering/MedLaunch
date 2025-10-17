@@ -104,7 +104,7 @@ export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
     // VitalCare categories
     "New Patient",
     "Follow Up Patient",
-    "Nurse Practitioner Well Visit",
+    "New Patient Wellness Visits",
     "Medicare Annual Wellness",
     "Transitional Care Management",
     "Allergy Tests",

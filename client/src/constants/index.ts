@@ -47,7 +47,7 @@ export const CPTCodeLabelColors = {
   // VitalCare categories
   "New Patient": "rgb(222, 234, 255)",
   "Follow Up Patient": "rgb(241, 205, 177)",
-  "Nurse Practitioner Well Visit": "rgba(211, 217, 227, 1)",
+  "New Patient Wellness Visits": "rgba(211, 217, 227, 1)",
   "Medicare Annual Wellness": "rgba(210, 190, 237, 1)",
   "Transitional Care Management": "rgba(173, 216, 230, 1)",
   "Allergy Tests": "rgba(255, 218, 185, 1)",
@@ -65,7 +65,7 @@ export const LabelMapping = {
   // VitalCare categories
   "New Patient": "patientCountTotal",
   "Follow Up Patient": "followUpPatientTotal",
-  "Nurse Practitioner Well Visit": "npWellnessVisitTotal",
+  "New Patient Wellness Visits": "npWellnessVisitTotal",
   "Medicare Annual Wellness": "medicareAnnualWellnessTotal",
   "Transitional Care Management": "transitionalCareManagementTotal",
   "Allergy Tests": "allergyTestsTotal",

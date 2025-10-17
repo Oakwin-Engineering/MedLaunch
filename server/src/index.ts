@@ -1,13 +1,13 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { Storage } from "@google-cloud/storage";
 import { getBucketName } from "./types/common";
 import {
-  downloadBucket,
-  uploadFileToBucket,
+  downloadFromFirebaseStorage,
+  uploadToFirestore,
+  getFromFirestore,
   deleteLocalData,
-} from "./services/gcs";
+} from "./services/firebase";
 import { vitalCareTransform } from "./transformers/vitalcare";
 import { uHealthTransform } from "./transformers/uhealth";
 
@@ -28,18 +28,18 @@ app.use(
 app.use(express.json());
 
 /**
- * Main ETL endpoint - downloads data, transforms it, and uploads to GCS
+ * Main ETL endpoint - downloads data from Firebase Storage, transforms it, and uploads back to Firebase Storage
  */
 app.post("/trigger-etl/:customerId", async (req: Request, res: Response) => {
   console.log("Starting ETL process...");
 
   try {
     const customerId = req.params.customerId;
-    const bucketName = getBucketName(customerId);
+    getBucketName(customerId); // Validate customer ID
 
-    // Step 1: Download data from GCS
-    console.log("Downloading data from GCS...");
-    await downloadBucket(`${bucketName}-pretransformed`);
+    // Step 1: Download data from Firebase Storage
+    console.log("Downloading data from Firebase Storage...");
+    await downloadFromFirebaseStorage(customerId);
     console.log("Data download complete");
 
     // Step 2: Transform data
@@ -47,11 +47,9 @@ app.post("/trigger-etl/:customerId", async (req: Request, res: Response) => {
     const jsonData = await transformData(customerId);
     console.log("Data transformation complete");
 
-    // Step 3: Upload transformed data to GCS
-    console.log("Uploading transformed data...");
-    const transformedBucketName = `${bucketName}-transformed`;
-    const objectName = "facility-provider-hierarchy.json";
-    await uploadFileToBucket(transformedBucketName, objectName, jsonData);
+    // Step 3: Upload transformed data to Firebase Storage
+    console.log("Uploading transformed data to Firebase Storage...");
+    await uploadToFirestore(customerId, jsonData);
     console.log("Data upload complete");
 
     // Step 4: Delete local data folder
@@ -69,7 +67,7 @@ app.post("/trigger-etl/:customerId", async (req: Request, res: Response) => {
 });
 
 /**
- * Test ETL endpoint - transforms data without downloading from GCS
+ * Test ETL endpoint - transforms data without downloading, uploads to Firebase Storage
  */
 app.post(
   "/trigger-etl-test/:customerId",
@@ -78,18 +76,16 @@ app.post(
 
     try {
       const customerId = req.params.customerId;
-      const bucketName = getBucketName(customerId);
+      getBucketName(customerId); // Validate customer ID
 
       // Step 1: Transform data
       console.log("Transforming data...");
       const jsonData = await transformData(customerId);
       console.log("Data transformation complete");
 
-      // Step 2: Upload transformed data to GCS
-      console.log("Uploading transformed data...");
-      const transformedBucketName = `${bucketName}-transformed`;
-      const objectName = "facility-provider-hierarchy.json";
-      await uploadFileToBucket(transformedBucketName, objectName, jsonData);
+      // Step 2: Upload transformed data to Firebase Storage
+      console.log("Uploading transformed data to Firebase Storage...");
+      await uploadToFirestore(customerId, jsonData);
       console.log("Data upload complete");
 
       res.status(200).send("ETL process completed successfully");
@@ -101,22 +97,17 @@ app.post(
 );
 
 /**
- * Endpoint to retrieve transformed data from GCS
+ * Endpoint to retrieve transformed data from Firebase Storage
  */
 app.get("/table-data/:customerId", async (req: Request, res: Response) => {
   try {
     const customerId = req.params.customerId;
-    const bucketName = getBucketName(customerId);
-    const transformedBucketName = `${bucketName}-transformed`;
-    const objectName = "facility-provider-hierarchy.json";
+    getBucketName(customerId); // Validate customer ID
 
-    const storage = new Storage();
-    const file = storage.bucket(transformedBucketName).file(objectName);
-
-    const [data] = await file.download();
+    const data = await getFromFirestore(customerId);
 
     res.setHeader("Content-Type", "application/json");
-    res.send(data);
+    res.json(data);
   } catch (error) {
     console.error("Error retrieving table data:", error);
     res.status(500).send(`Error retrieving table data: ${error}`);
@@ -124,16 +115,16 @@ app.get("/table-data/:customerId", async (req: Request, res: Response) => {
 });
 
 /**
- * Endpoint to download data from GCS
+ * Endpoint to download data from Firebase Storage
  */
 app.get("/download-data/:customerId", async (req: Request, res: Response) => {
   console.log("Starting data download process...");
 
   try {
     const customerId = req.params.customerId;
-    const bucketName = getBucketName(customerId);
+    getBucketName(customerId); // Validate customer ID
 
-    await downloadBucket(`${bucketName}-pretransformed`);
+    await downloadFromFirebaseStorage(customerId);
     console.log("Data download complete");
 
     res.status(200).send("Data download completed successfully");
@@ -146,7 +137,7 @@ app.get("/download-data/:customerId", async (req: Request, res: Response) => {
 /**
  * Transform data based on customer ID
  */
-async function transformData(clientName: string): Promise<Buffer> {
+async function transformData(clientName: string): Promise<object> {
   switch (clientName.toLowerCase()) {
     case "uhealth":
       return await uHealthTransform();

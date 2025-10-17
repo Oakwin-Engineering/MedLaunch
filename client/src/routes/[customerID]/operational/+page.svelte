@@ -30,4 +30,10 @@
     data={operationalData}
     metric="rvus"
   />
+
+  <Operational
+    title="Sleep Study {yearTitle}"
+    data={operationalData}
+    metric="sleepStudy"
+  />
 </div>

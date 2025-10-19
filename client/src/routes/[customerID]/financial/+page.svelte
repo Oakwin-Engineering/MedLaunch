@@ -9,6 +9,9 @@
     TableHeadCell,
   } from "flowbite-svelte";
 
+  // Set current dashboard
+  store.currentDashboard = "FinancialDashboard";
+
   const financialData = store.allDashboards.financial || {};
 
   // Define the aging buckets in order

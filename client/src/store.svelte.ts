@@ -20,5 +20,5 @@ export const store = $state({
   sidebarCategory: FilterMode.LocationOnly,
   allDashboards: {} as AllDashboards,
   isDrawerOpen: false,
-  currentDashboard: "ProviderPerformance",
+  currentDashboard: "", // Initialized dynamically based on current route
 });

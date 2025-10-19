@@ -1,5 +1,8 @@
 <script lang="ts">
   import { store } from "../../../store.svelte";
+
+  // Set current dashboard
+  store.currentDashboard = "ClinicalDashboard";
 </script>
 
 <div class="flex items-center justify-center h-[calc(100vh-4rem)] ml-64 mt-16">

@@ -24,12 +24,13 @@ import {
   processPaymentsVitalCare,
   processContractualAdjustmentsVitalCare,
   getUniqueCPTCodesVitalCare,
-  processMonthlyPatientCount,
   processRVUsVitalCare,
   processTotalVisitsVitalCare,
   processPayrollVitalCare,
   processProviderLocationRelationshipVitalCare,
   processAccountsReceivable,
+  processPayerPaymentVitalCare,
+  processPatientPaymentVitalCare,
 } from "../etl/etlVitalcare";
 
 const readdir = promisify(fs.readdir);
@@ -70,7 +71,7 @@ const G2211 = "G2211";
 const CPT_CATEGORIES: Record<string, string> = {
   "New Patient": "PatientCountTotal",
   "Follow Up Patient": "FollowUpPatientTotal",
-  "New Patient Well Visits": "NPWellnessVisitTotal",
+  "New Patient Wellness Visits": "NPWellnessVisitTotal",
   "Medicare Annual Wellness": "MedicareAnnualWellnessTotal",
   "Transitional Care Management": "TransitionalCareManagementTotal",
   "Allergy Tests": "AllergyTestsTotal",
@@ -90,6 +91,8 @@ type DataSources = {
   payroll: Record<string, Record<string, number>>;
   uniquePaylocityProviders: string[];
   providerMetrics: Record<string, Record<string, number>>;
+  payerPayment: Record<string, Record<string, number>>;
+  patientPayment: Record<string, Record<string, number>>;
 };
 
 class MetricBuilder {
@@ -215,7 +218,6 @@ class MetricBuilder {
   } {
     const metrics: CptCodeMetric[] = [];
     const categoryValues: Record<string, number[]> = {};
-    const totalVisitsByMonth = new Array(12).fill(0);
 
     for (const category of Object.values(CPT_CATEGORIES)) {
       categoryValues[category] = new Array(12).fill(0);
@@ -232,6 +234,7 @@ class MetricBuilder {
       const unitsTotal = sum(units);
 
       let label = CPT_CODE_MAPPING_VITALCARE[code] || "CPT Coding";
+
       const category = CPT_CATEGORIES[label];
 
       if (category) {
@@ -306,9 +309,13 @@ async function loadDataSources(year: string): Promise<DataSources> {
   const uniqueCPTCodes = await getUniqueCPTCodesVitalCare(
     financialAnalysisFile
   );
-  const monthlyPatientCount = await processMonthlyPatientCount(
+  const payerPayment = await processPayerPaymentVitalCare(
     financialAnalysisFile
   );
+  const patientPayment = await processPatientPaymentVitalCare(
+    financialAnalysisFile
+  );
+
   const rvus = await processRVUsVitalCare(rvuFile);
   const totalVisits = await processTotalVisitsVitalCare(rvuFile);
   const { data: payroll, uniqueEmployees } = await processPayrollVitalCare(
@@ -326,64 +333,9 @@ async function loadDataSources(year: string): Promise<DataSources> {
     payroll,
     uniquePaylocityProviders: uniqueEmployees,
     providerMetrics: {}, // Will be calculated in post-processing
+    payerPayment,
+    patientPayment,
   };
-}
-
-function aggregateProviderMetrics(
-  ds: {
-    rvus;
-    units;
-  },
-  monthlyPatientCount
-): Record<string, Record<string, number>> {
-  const providerMetrics = {
-    PatientCount: {},
-    RVUs: {},
-    SleepStudy: {},
-    G2211: {},
-  };
-
-  // Aggregate patient counts
-  for (const providerData of Object.values(monthlyPatientCount)) {
-    for (const [provider, count] of Object.entries(providerData)) {
-      providerMetrics.PatientCount[provider] =
-        (providerMetrics.PatientCount[provider] || 0) + count;
-    }
-  }
-
-  // Aggregate RVUs
-  for (const providerData of Object.values(ds.rvus)) {
-    for (const [provider, rvuCount] of Object.entries(providerData)) {
-      providerMetrics.RVUs[provider] =
-        (providerMetrics.RVUs[provider] || 0) + rvuCount;
-    }
-  }
-
-  // Aggregate sleep study CPTs
-  for (const cptMap of Object.values(ds.units)) {
-    for (const [cptCode, providerMap] of Object.entries(cptMap)) {
-      if (SLEEP_STUDY_CPT[cptCode]) {
-        for (const [provider, units] of Object.entries(providerMap)) {
-          providerMetrics.SleepStudy[provider] =
-            (providerMetrics.SleepStudy[provider] || 0) + units;
-        }
-      }
-    }
-  }
-
-  // Aggregate G2211 CPTs
-  for (const cptMap of Object.values(ds.units)) {
-    for (const [cptCode, providerMap] of Object.entries(cptMap)) {
-      if (cptCode === G2211) {
-        for (const [provider, units] of Object.entries(providerMap)) {
-          providerMetrics.G2211[provider] =
-            (providerMetrics.G2211[provider] || 0) + units;
-        }
-      }
-    }
-  }
-
-  return providerMetrics;
 }
 
 function processProviderFinancials(
@@ -697,11 +649,17 @@ function calculateProviderRankings(
 /**
  * Post-process operational dashboard from provider performance items
  */
-function calculateOperational(items: Node[]): {
-  totalVisits: number[];
+function calculateOperational(
+  items: Node[],
+  dataSources: DataSources
+): {
+  newPatients: number[];
   charges: number[];
   rvus: number[];
   sleepStudy: number[];
+  payerPayment: number[];
+  patientPayment: number[];
+  totalReceipts: number[];
 } | null {
   const allProvidersNode = items.find((node) => node.id === "all-providers");
   if (!allProvidersNode) {
@@ -718,11 +676,37 @@ function calculateOperational(items: Node[]): {
     }
   }
 
+  // Aggregate payer payment and patient payment across all providers
+  const payerPaymentValues = new Array(12).fill(0);
+  const patientPaymentValues = new Array(12).fill(0);
+  const totalReceiptsValues = new Array(12).fill(0);
+
+  for (const [monthIndex, month] of MONTHS.entries()) {
+    const payerPaymentMonth = dataSources.payerPayment[month] || {};
+    const patientPaymentMonth = dataSources.patientPayment[month] || {};
+
+    // Sum all provider values for this month
+    for (const providerName in payerPaymentMonth) {
+      payerPaymentValues[monthIndex] += payerPaymentMonth[providerName];
+    }
+
+    for (const providerName in patientPaymentMonth) {
+      patientPaymentValues[monthIndex] += patientPaymentMonth[providerName];
+    }
+
+    // Calculate total receipts (payer + patient)
+    totalReceiptsValues[monthIndex] =
+      payerPaymentValues[monthIndex] + patientPaymentValues[monthIndex];
+  }
+
   return {
-    totalVisits: allProvidersNode.data.totalVisits.values,
+    newPatients: allProvidersNode.data.totalVisits.values,
     charges: allProvidersNode.data.charges.values,
     rvus: allProvidersNode.data.rvus.values,
     sleepStudy: sleepStudyValues,
+    payerPayment: payerPaymentValues,
+    patientPayment: patientPaymentValues,
+    totalReceipts: totalReceiptsValues,
   };
 }
 
@@ -742,7 +726,7 @@ export async function vitalCareTransform(): Promise<object> {
 
     // Post-process other dashboards from items
     allYearsProviderRankings[year] = calculateProviderRankings(items);
-    allYearsOperational[year] = calculateOperational(items);
+    allYearsOperational[year] = calculateOperational(items, dataSources);
   }
 
   const accountsReceivable = await processAccountsReceivable(

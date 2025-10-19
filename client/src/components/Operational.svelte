@@ -5,12 +5,16 @@
     title: string;
     data: {
       [year: string]: {
-        totalVisits?: number[];
+        newPatients?: number[];
         charges?: number[];
         rvus?: number[];
+        sleepStudy?: number[];
+        payerPayment?: number[];
+        patientPayment?: number[];
+        totalReceipts?: number[];
       };
     };
-    metric: "totalVisits" | "charges" | "rvus";
+    metric: "newPatients" | "charges" | "rvus" | "sleepStudy" | "payerPayment" | "patientPayment" | "totalReceipts";
   }
 
   let { title, data, metric }: Props = $props();
@@ -78,7 +82,7 @@
       },
       formatter: function (value: number) {
         if (value === 0) return "";
-        if (metric === "charges") {
+        if (metric === "charges" || metric === "payerPayment" || metric === "patientPayment" || metric === "totalReceipts") {
           return "$" + (value / 1000).toFixed(0) + "k";
         }
         return value.toLocaleString();
@@ -122,7 +126,7 @@
       show: true,
       labels: {
         formatter: function (value: number) {
-          if (metric === "charges") {
+          if (metric === "charges" || metric === "payerPayment" || metric === "patientPayment" || metric === "totalReceipts") {
             return "$" + (value / 1000).toFixed(0) + "k";
           }
           return value.toLocaleString();

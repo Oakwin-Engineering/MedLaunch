@@ -151,6 +151,24 @@ export async function processUnitsVitalCare(
 }
 
 /**
+ * Processes payer payment data for VitalCare
+ */
+export async function processPayerPaymentVitalCare(
+  filePath: string
+): Promise<Record<string, Record<string, number>>> {
+  return processFinancialDataVitalCare(filePath, 9);
+}
+
+/**
+ * Processes patient payment data for VitalCare
+ */
+export async function processPatientPaymentVitalCare(
+  filePath: string
+): Promise<Record<string, Record<string, number>>> {
+  return processFinancialDataVitalCare(filePath, 10);
+}
+
+/**
  * Processes payroll data for VitalCare
  */
 export async function processPayrollVitalCare(filePath: string): Promise<{

@@ -6,6 +6,9 @@
   import { flattenHierarchy } from "../../../utils/utils";
   import { FilterMode } from "../../../constants";
 
+  // Set current dashboard
+  store.currentDashboard = "ProviderPerformance";
+
   const availableYears = Object.keys(store.allDashboards.providerPerformance);
 
   // Get current year

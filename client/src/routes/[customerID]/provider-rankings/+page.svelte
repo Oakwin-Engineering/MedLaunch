@@ -3,6 +3,9 @@
   import RankingsChart from "../../../components/RankingsChart.svelte";
   import YearSelector from "../../../components/YearSelector.svelte";
 
+  // Set current dashboard
+  store.currentDashboard = "ProviderRankings";
+
   const availableYears = Object.keys(
     store.allDashboards.providerRankings || {}
   );

@@ -634,25 +634,87 @@ async function processYearDataUHealth(year: string): Promise<Node[]> {
   return items;
 }
 
+/**
+ * Post-process provider rankings from provider performance items
+ * Extracts metrics by traversing the node hierarchy
+ */
+function calculateProviderRankingsUHealth(
+  items: Node[]
+): Record<string, Record<string, number>> {
+  const providerMetrics = {
+    PatientCount: {},
+  };
+
+  // Traverse state > division > facility nodes to find provider children
+  for (const stateNode of items) {
+    if (stateNode.children && stateNode.children.length > 0) {
+      for (const divisionNode of stateNode.children) {
+        if (divisionNode.children && divisionNode.children.length > 0) {
+          for (const facilityNode of divisionNode.children) {
+            if (facilityNode.children && facilityNode.children.length > 0) {
+              for (const provider of facilityNode.children) {
+                const providerName = provider.label;
+
+                // Aggregate patient count from totalVisits
+                if (provider.data.totalVisits?.total) {
+                  providerMetrics.PatientCount[providerName] =
+                    provider.data.totalVisits.total;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return providerMetrics;
+}
+
+/**
+ * Post-process operational dashboard from provider performance items
+ */
+function calculateOperationalMetricsUHealth(items: Node[]): {
+  patientsSeen: number[];
+  charges: number[];
+} | null {
+  const allProvidersNode = items.find((node) => node.id === "all-providers");
+  if (!allProvidersNode) {
+    return null;
+  }
+
+  return {
+    patientsSeen: allProvidersNode.data.totalVisits.values,
+    charges: allProvidersNode.data.charges.values,
+  };
+}
+
 export async function uHealthTransform(): Promise<object> {
   const years = await getYearDirectories("data");
 
   const allYearsData: Record<string, Node[]> = {};
+  const providerRankingsByYear = {};
+  const operationalMetricsByYear = {};
 
   for (const year of years) {
     try {
       const items = await processYearDataUHealth(year);
       allYearsData[year] = items;
+
+      // Calculate post-processed metrics
+      providerRankingsByYear[year] = calculateProviderRankingsUHealth(items);
+      operationalMetricsByYear[year] =
+        calculateOperationalMetricsUHealth(items);
     } catch (err) {
       console.error(`Error processing year ${year}:`, err);
     }
   }
 
   const dashboardData = {
-    providerRankings: {},
+    providerRankings: providerRankingsByYear,
     providerPerformance: allYearsData,
     financial: {},
-    operational: {},
+    operational: operationalMetricsByYear,
     clinical: {},
   };
 

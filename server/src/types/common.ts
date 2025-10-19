@@ -20,6 +20,8 @@ export type NodeData = {
   medicareAddOnTotal?: Metric;
   depressionScreeningTotal?: Metric;
   initialVisitsTotal?: Metric;
+  payerPayment?: Metric;
+  patientPayment?: Metric;
   subsequentVisitsTotal?: Metric;
   dischargeTotal?: Metric;
   followUpPatientTotal: Metric;
@@ -89,7 +91,11 @@ export function getBucketName(customerId: string): string {
   throw new Error(`Invalid customer ID: ${customerId}`);
 }
 
-export function createMetric(label: string, values: number[], total: number): Metric {
+export function createMetric(
+  label: string,
+  values: number[],
+  total: number
+): Metric {
   return { label, values, total, coding: "-" };
 }
 
@@ -97,7 +103,10 @@ export function sum(values: number[]): number {
   return values.reduce((acc, v) => acc + v, 0);
 }
 
-export function divideArrays(numerator: number[], denominator: number[]): number[] {
+export function divideArrays(
+  numerator: number[],
+  denominator: number[]
+): number[] {
   return numerator.map((n, i) => (denominator[i] > 0 ? n / denominator[i] : 0));
 }
 
@@ -110,7 +119,10 @@ export function percentageArrays(
   );
 }
 
-export function percentageValue(numerator: number, denominator: number): number {
+export function percentageValue(
+  numerator: number,
+  denominator: number
+): number {
   return denominator > 0 ? (numerator / denominator) * 100 : 0;
 }
 

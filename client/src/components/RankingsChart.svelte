@@ -4,6 +4,11 @@
 
   let { title, data, color, categories } = $props();
 
+  // Check if there's any data to display
+  const hasData = $derived(
+    data && data.length > 0 && data.some((val: number) => val > 0)
+  );
+
   // Make options reactive using $derived
   const options: ApexOptions = $derived({
     series: [
@@ -175,7 +180,9 @@
   });
 </script>
 
-<div class="mb-6">
-  <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-3">{title}</h2>
-  <Chart {options} />
-</div>
+{#if hasData}
+  <div class="mb-6">
+    <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-3">{title}</h2>
+    <Chart {options} />
+  </div>
+{/if}

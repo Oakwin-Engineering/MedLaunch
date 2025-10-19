@@ -66,6 +66,13 @@ const SLEEP_STUDY_CPT: Record<string, boolean> = {
   "95805": true,
 };
 
+const NEW_PATIENT_CPT: Record<string, boolean> = {
+  "99202": true,
+  "99203": true,
+  "99204": true,
+  "99205": true,
+};
+
 const G2211 = "G2211";
 
 const CPT_CATEGORIES: Record<string, string> = {
@@ -102,6 +109,8 @@ class MetricBuilder {
   rvus: number[] = new Array(12).fill(0);
   totalVisits: number[] = new Array(12).fill(0);
   payroll: number[] = new Array(12).fill(0);
+  payerPayment: number[] = new Array(12).fill(0);
+  patientPayment: number[] = new Array(12).fill(0);
   cptData: Record<string, Record<string, number[]>> = {};
 
   aggregate(other: MetricBuilder): void {
@@ -112,6 +121,8 @@ class MetricBuilder {
       this.rvus[i] += other.rvus[i];
       this.totalVisits[i] += other.totalVisits[i];
       this.payroll[i] += other.payroll[i];
+      this.payerPayment[i] += other.payerPayment[i];
+      this.patientPayment[i] += other.patientPayment[i];
     }
 
     for (const [code, data] of Object.entries(other.cptData)) {
@@ -131,6 +142,8 @@ class MetricBuilder {
     const rvusTotal = sum(this.rvus);
     const totalVisitsTotal = sum(this.totalVisits);
     const payrollTotal = sum(this.payroll);
+    const payerPaymentTotal = sum(this.payerPayment);
+    const patientPaymentTotal = sum(this.patientPayment);
 
     const opmValues = new Array(12).fill(0);
     for (let i = 0; i < 12; i++) {
@@ -208,6 +221,16 @@ class MetricBuilder {
         "Adjustments % of Charges",
         adjustmentPercentOfCharges,
         percentageValue(adjustmentsTotal, chargesTotal)
+      ),
+      payerPayment: createMetric(
+        "Payer Payment",
+        this.payerPayment,
+        payerPaymentTotal
+      ),
+      patientPayment: createMetric(
+        "Patient Payment",
+        this.patientPayment,
+        patientPaymentTotal
       ),
     };
   }
@@ -429,6 +452,24 @@ function processProviderPayroll(
   }
 }
 
+function processProviderPayments(
+  builder: MetricBuilder,
+  providerName: string,
+  ds: DataSources
+): void {
+  for (let i = 0; i < MONTHS.length; i++) {
+    const month = MONTHS[i];
+
+    if (ds.payerPayment[month]?.[providerName]) {
+      builder.payerPayment[i] = ds.payerPayment[month][providerName];
+    }
+
+    if (ds.patientPayment[month]?.[providerName]) {
+      builder.patientPayment[i] = ds.patientPayment[month][providerName];
+    }
+  }
+}
+
 function buildProviderToLocationMap(
   locationProviderMap: Record<string, string[]>
 ): Record<string, string[]> {
@@ -517,6 +558,7 @@ function createLocationNode(
     processProviderFinancials(providerBuilder, providerName, ds);
     processProviderRVUsAndVisits(providerBuilder, providerName, ds);
     processProviderPayroll(providerBuilder, providerName, ds, namesMapping);
+    processProviderPayments(providerBuilder, providerName, ds);
 
     const providerNode: Node = {
       id: providerID,
@@ -545,6 +587,7 @@ function createAllProvidersNode(
     processProviderFinancials(providerBuilder, providerName, ds);
     processProviderRVUsAndVisits(providerBuilder, providerName, ds);
     processProviderPayroll(providerBuilder, providerName, ds, namesMapping);
+    processProviderPayments(providerBuilder, providerName, ds);
     builder.aggregate(providerBuilder);
   }
 
@@ -649,10 +692,8 @@ function calculateProviderRankings(
 /**
  * Post-process operational dashboard from provider performance items
  */
-function calculateOperational(
-  items: Node[],
-  dataSources: DataSources
-): {
+function calculateOperational(items: Node[]): {
+  patientsSeen: number[];
   newPatients: number[];
   charges: number[];
   rvus: number[];
@@ -666,6 +707,16 @@ function calculateOperational(
     return null;
   }
 
+  // Calculate new patient count by aggregating new patient CPT codes
+  const newPatientCountValues = new Array(12).fill(0);
+  for (const cptCode of allProvidersNode.data.cptCodes) {
+    if (NEW_PATIENT_CPT[cptCode.code]) {
+      for (let i = 0; i < 12; i++) {
+        newPatientCountValues[i] += cptCode.values[i];
+      }
+    }
+  }
+
   // Calculate sleep study values by aggregating sleep study CPT codes
   const sleepStudyValues = new Array(12).fill(0);
   for (const cptCode of allProvidersNode.data.cptCodes) {
@@ -676,31 +727,19 @@ function calculateOperational(
     }
   }
 
-  // Aggregate payer payment and patient payment across all providers
-  const payerPaymentValues = new Array(12).fill(0);
-  const patientPaymentValues = new Array(12).fill(0);
+  // Get payer payment and patient payment from allProvidersNode
+  const payerPaymentValues = allProvidersNode.data.payerPayment.values;
+  const patientPaymentValues = allProvidersNode.data.patientPayment.values;
+
+  // Calculate total receipts (payer + patient)
   const totalReceiptsValues = new Array(12).fill(0);
-
-  for (const [monthIndex, month] of MONTHS.entries()) {
-    const payerPaymentMonth = dataSources.payerPayment[month] || {};
-    const patientPaymentMonth = dataSources.patientPayment[month] || {};
-
-    // Sum all provider values for this month
-    for (const providerName in payerPaymentMonth) {
-      payerPaymentValues[monthIndex] += payerPaymentMonth[providerName];
-    }
-
-    for (const providerName in patientPaymentMonth) {
-      patientPaymentValues[monthIndex] += patientPaymentMonth[providerName];
-    }
-
-    // Calculate total receipts (payer + patient)
-    totalReceiptsValues[monthIndex] =
-      payerPaymentValues[monthIndex] + patientPaymentValues[monthIndex];
+  for (let i = 0; i < 12; i++) {
+    totalReceiptsValues[i] = payerPaymentValues[i] + patientPaymentValues[i];
   }
 
   return {
-    newPatients: allProvidersNode.data.totalVisits.values,
+    patientsSeen: allProvidersNode.data.totalVisits.values,
+    newPatients: newPatientCountValues,
     charges: allProvidersNode.data.charges.values,
     rvus: allProvidersNode.data.rvus.values,
     sleepStudy: sleepStudyValues,
@@ -726,7 +765,7 @@ export async function vitalCareTransform(): Promise<object> {
 
     // Post-process other dashboards from items
     allYearsProviderRankings[year] = calculateProviderRankings(items);
-    allYearsOperational[year] = calculateOperational(items, dataSources);
+    allYearsOperational[year] = calculateOperational(items);
   }
 
   const accountsReceivable = await processAccountsReceivable(

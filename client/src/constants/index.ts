@@ -31,6 +31,24 @@ export const Headers = [
   "Coding %",
 ];
 
+export const AnnualHeaders = [
+  "",
+  "",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+  "Totals",
+];
+
 export enum FilterMode {
   ProviderOnly = "Provider",
   LocationOnly = "Location",

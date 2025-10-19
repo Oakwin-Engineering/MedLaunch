@@ -5,6 +5,7 @@
     title: string;
     data: {
       [year: string]: {
+        patientsSeen?: number[];
         newPatients?: number[];
         charges?: number[];
         rvus?: number[];
@@ -14,7 +15,15 @@
         totalReceipts?: number[];
       };
     };
-    metric: "newPatients" | "charges" | "rvus" | "sleepStudy" | "payerPayment" | "patientPayment" | "totalReceipts";
+    metric:
+      | "newPatients"
+      | "patientsSeen"
+      | "charges"
+      | "rvus"
+      | "sleepStudy"
+      | "payerPayment"
+      | "patientPayment"
+      | "totalReceipts";
   }
 
   let { title, data, metric }: Props = $props();
@@ -55,6 +64,11 @@
       };
     });
 
+  // Check if any year has data for this metric
+  const hasData = datasets.some((dataset) => 
+    dataset.data && dataset.data.length > 0 && dataset.data.some((val) => val > 0)
+  );
+
   const chartOptions = {
     chart: {
       height: "400px",
@@ -82,7 +96,12 @@
       },
       formatter: function (value: number) {
         if (value === 0) return "";
-        if (metric === "charges" || metric === "payerPayment" || metric === "patientPayment" || metric === "totalReceipts") {
+        if (
+          metric === "charges" ||
+          metric === "payerPayment" ||
+          metric === "patientPayment" ||
+          metric === "totalReceipts"
+        ) {
           return "$" + (value / 1000).toFixed(0) + "k";
         }
         return value.toLocaleString();
@@ -126,7 +145,12 @@
       show: true,
       labels: {
         formatter: function (value: number) {
-          if (metric === "charges" || metric === "payerPayment" || metric === "patientPayment" || metric === "totalReceipts") {
+          if (
+            metric === "charges" ||
+            metric === "payerPayment" ||
+            metric === "patientPayment" ||
+            metric === "totalReceipts"
+          ) {
             return "$" + (value / 1000).toFixed(0) + "k";
           }
           return value.toLocaleString();
@@ -136,13 +160,15 @@
   };
 </script>
 
-<div class="w-full bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-  <div class="flex justify-between mb-5">
-    <div>
-      <h5 class="text-xl font-bold leading-none text-gray-900">
-        {title}
-      </h5>
+{#if hasData}
+  <div class="w-full bg-white rounded-lg shadow p-4 md:p-6 mb-6">
+    <div class="flex justify-between mb-5">
+      <div>
+        <h5 class="text-xl font-bold leading-none text-gray-900">
+          {title}
+        </h5>
+      </div>
     </div>
+    <Chart options={chartOptions} />
   </div>
-  <Chart options={chartOptions} />
-</div>
+{/if}

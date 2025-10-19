@@ -18,6 +18,12 @@
   <Operational
     title="Patients Seen {yearTitle}"
     data={operationalData}
+    metric="patientsSeen"
+  />
+
+  <Operational
+    title="New Patient Count {yearTitle}"
+    data={operationalData}
     metric="newPatients"
   />
 

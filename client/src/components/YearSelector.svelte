@@ -1,21 +1,24 @@
 <script lang="ts">
-  let { availableYears, activeYear, onYearChange } = $props<{
+  import { ButtonGroup, Button } from "flowbite-svelte";
+
+  let { availableYears, activeYear, onYearChange, disabled = false } = $props<{
     availableYears: string[];
     activeYear: string;
     onYearChange: (year: string) => void;
+    disabled?: boolean;
   }>();
 </script>
 
-<div class="mb-6 flex gap-2">
-  {#each availableYears as year}
-    <button
-      class="px-4 py-2 rounded-lg font-medium transition-colors {activeYear ===
-      year
-        ? 'bg-blue-600 text-white'
-        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
-      onclick={() => onYearChange(year)}
-    >
-      {year}
-    </button>
-  {/each}
+<div class="mb-6">
+  <ButtonGroup>
+    {#each availableYears as year}
+      <Button
+        color={activeYear === year ? "blue" : "light"}
+        onclick={() => onYearChange(year)}
+        {disabled}
+      >
+        {year}
+      </Button>
+    {/each}
+  </ButtonGroup>
 </div>

@@ -1,4 +1,4 @@
-import { initializeApp, cert } from "firebase-admin/app";
+import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getStorage } from "firebase-admin/storage";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
@@ -8,11 +8,10 @@ import { promisify } from "util";
 const mkdir = promisify(fs.mkdir);
 const rmdir = promisify(fs.rm);
 
-// Initialize Firebase Admin with Service Account
-const serviceAccount = require("../../medlaunch-8f4c7-firebase-adminsdk-fbsvc-b144473408.json");
-
+// Initialize Firebase Admin with Application Default Credentials
+// This works automatically on Cloud Run with the attached service account
 initializeApp({
-  credential: cert(serviceAccount),
+  credential: applicationDefault(),
   storageBucket: "medlaunch-8f4c7.firebasestorage.app",
 });
 

@@ -2,6 +2,7 @@
 export type Node = {
   id: string;
   label: string;
+  type: string; // Node type: 'state', 'division', 'location', 'provider'
   iconType: string;
   data: NodeData;
   children?: Node[];

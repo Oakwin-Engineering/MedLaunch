@@ -7,18 +7,19 @@ import { MONTHS } from "../types/common";
  */
 export async function processFinancialDataVitalCare(
   filePath: string,
-  amountIdx: number
+  amountHeader: string
 ): Promise<Record<string, Record<string, number>>> {
   return new Promise((resolve, reject) => {
     const data: Record<string, Record<string, number>> = {};
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const providerName = values[0]?.trim();
-        const dateStr = values[1];
-        const amountStr = values[amountIdx];
+        const providerName = row["Appointment / Servicing Provider"]?.trim();
+        const dateStr = row["Month"];
+        const amountStr = row[amountHeader];
 
         if (!dateStr) return;
 
@@ -49,19 +50,20 @@ export async function processFinancialDataVitalCare(
  */
 export async function processFinancialAnalysisVitalCare(
   filePath: string,
-  amountIdx: number
+  amountHeader: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
   return new Promise((resolve, reject) => {
     const data: Record<string, Record<string, Record<string, number>>> = {};
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const providerName = values[0]?.trim();
-        const monthStr = values[1]?.trim();
-        const cptCode = values[2]?.trim();
-        const amountStr = values[amountIdx];
+        const providerName = row["Appointment / Servicing Provider"]?.trim();
+        const monthStr = row["Month"]?.trim();
+        const cptCode = row["CPT Code"]?.trim();
+        const amountStr = row[amountHeader];
 
         if (!monthStr) return;
 
@@ -93,7 +95,7 @@ export async function processFinancialAnalysisVitalCare(
 export async function processRVUsVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, number>>> {
-  return processFinancialDataVitalCare(filePath, 7);
+  return processFinancialDataVitalCare(filePath, "Work RVU * Units");
 }
 
 /**
@@ -102,7 +104,7 @@ export async function processRVUsVitalCare(
 export async function processTotalVisitsVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, number>>> {
-  return processFinancialDataVitalCare(filePath, 6);
+  return processFinancialDataVitalCare(filePath, "Units");
 }
 
 /**
@@ -111,7 +113,7 @@ export async function processTotalVisitsVitalCare(
 export async function processMonthlyPatientCount(
   filePath: string
 ): Promise<Record<string, Record<string, number>>> {
-  return processFinancialDataVitalCare(filePath, 16);
+  return processFinancialDataVitalCare(filePath, "Total(Patient Count)");
 }
 
 /**
@@ -120,7 +122,7 @@ export async function processMonthlyPatientCount(
 export async function processChargesVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
-  return processFinancialAnalysisVitalCare(filePath, 4);
+  return processFinancialAnalysisVitalCare(filePath, "Billed Charge");
 }
 
 /**
@@ -129,7 +131,7 @@ export async function processChargesVitalCare(
 export async function processPaymentsVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
-  return processFinancialAnalysisVitalCare(filePath, 7);
+  return processFinancialAnalysisVitalCare(filePath, "Payment");
 }
 
 /**
@@ -138,7 +140,7 @@ export async function processPaymentsVitalCare(
 export async function processContractualAdjustmentsVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
-  return processFinancialAnalysisVitalCare(filePath, 11);
+  return processFinancialAnalysisVitalCare(filePath, "Contractual Adjustment");
 }
 
 /**
@@ -147,7 +149,7 @@ export async function processContractualAdjustmentsVitalCare(
 export async function processUnitsVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, Record<string, number>>>> {
-  return processFinancialAnalysisVitalCare(filePath, 17);
+  return processFinancialAnalysisVitalCare(filePath, "Units");
 }
 
 /**
@@ -156,7 +158,7 @@ export async function processUnitsVitalCare(
 export async function processPayerPaymentVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, number>>> {
-  return processFinancialDataVitalCare(filePath, 9);
+  return processFinancialDataVitalCare(filePath, "Payer Payment");
 }
 
 /**
@@ -165,11 +167,13 @@ export async function processPayerPaymentVitalCare(
 export async function processPatientPaymentVitalCare(
   filePath: string
 ): Promise<Record<string, Record<string, number>>> {
-  return processFinancialDataVitalCare(filePath, 10);
+  return processFinancialDataVitalCare(filePath, "Patient Payment");
 }
 
 /**
  * Processes payroll data for VitalCare
+ * Note: Payroll CSV has a complex multi-row header structure, so we skip the first 4 rows
+ * and use positional indices for the data rows
  */
 export async function processPayrollVitalCare(filePath: string): Promise<{
   data: Record<string, Record<string, number>>;
@@ -194,7 +198,7 @@ export async function processPayrollVitalCare(filePath: string): Promise<{
 
         if (values.length < 15) return;
 
-        // Check if this is a new employee row
+        // Employee name is in column 4 (0-indexed)
         if (values[4]?.trim()) {
           currentEmployee = values[4].trim().replace(/"/g, "");
           employeeSet.add(currentEmployee);
@@ -202,6 +206,7 @@ export async function processPayrollVitalCare(filePath: string): Promise<{
 
         if (!currentEmployee) return;
 
+        // Pay date is in column 10, Net Pay is in column 14
         const dateStr = values[10]?.trim();
         const netPayStr = values[14]?.trim();
 
@@ -245,10 +250,11 @@ export async function getUniqueCPTCodesVitalCare(
     const cptCodeSet = new Set<string>();
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const cptCode = values[2];
+        const cptCode = row["CPT Code"];
         if (cptCode) {
           cptCodeSet.add(cptCode);
         }

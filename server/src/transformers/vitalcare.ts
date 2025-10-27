@@ -32,6 +32,12 @@ import {
   processPayerPaymentVitalCare,
   processPatientPaymentVitalCare,
 } from "../etl/etlVitalcare";
+import {
+  uploadHierarchyToStorage,
+  storeProviderSummaries,
+  storeProviderMetrics,
+  storePracticeSummary,
+} from "../services/firebase";
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -766,6 +772,9 @@ export async function vitalCareTransform(): Promise<object> {
     // Post-process other dashboards from items
     allYearsProviderRankings[year] = calculateProviderRankings(items);
     allYearsOperational[year] = calculateOperational(items);
+
+    // Store individual entities in Firestore
+    await storeVitalCareDataInFirestore(year, items, allYearsOperational[year]);
   }
 
   const accountsReceivable = await processAccountsReceivable(
@@ -779,5 +788,66 @@ export async function vitalCareTransform(): Promise<object> {
     operational: allYearsOperational,
   };
 
+  // Upload full hierarchy to Firebase Storage
+  await uploadHierarchyToStorage("vitalcare", dashboardData);
+
   return dashboardData;
+}
+
+/**
+ * Stores VitalCare data in Firestore collections
+ */
+async function storeVitalCareDataInFirestore(
+  year: string,
+  items: Node[],
+  operationalMetrics: any
+): Promise<void> {
+  console.log(`\n📦 Storing ${year} data in Firestore...`);
+
+  // Extract provider data from hierarchy
+  const providerSummaries: Array<{
+    id: string;
+    name: string;
+    totalCharges?: number;
+    totalPayments?: number;
+    totalPayroll?: number;
+    totalOperatingProfit?: number;
+  }> = [];
+
+  // Traverse the hierarchy to extract providers
+  for (const locationNode of items) {
+    if (locationNode.children) {
+      for (const providerNode of locationNode.children) {
+        const providerId = providerNode.id;
+        const providerName = providerNode.label;
+
+        // Add to provider summaries
+        providerSummaries.push({
+          id: providerId,
+          name: providerName,
+          totalCharges: providerNode.data.charges.total,
+          totalPayments: providerNode.data.payments.total,
+          totalPayroll: providerNode.data.payroll.total,
+          totalOperatingProfit: providerNode.data.operatingProfit.total,
+        });
+
+        // Store detailed metrics for this provider
+        await storeProviderMetrics(
+          "vitalcare",
+          year,
+          providerId,
+          providerName,
+          providerNode.data
+        );
+      }
+    }
+  }
+
+  // Store provider summaries (creates/updates provider documents)
+  if (providerSummaries.length > 0) {
+    await storeProviderSummaries("vitalcare", year, providerSummaries);
+  }
+
+  // Store practice summary for the year
+  await storePracticeSummary("vitalcare", year, operationalMetrics);
 }

@@ -4,8 +4,8 @@ import dotenv from "dotenv";
 import { getBucketName } from "./types/common";
 import {
   downloadFromFirebaseStorage,
-  uploadToFirestore,
-  getFromFirestore,
+  uploadHierarchyToStorage,
+  getHierarchyFromStorage,
   deleteLocalData,
 } from "./services/firebase";
 import { vitalCareTransform } from "./transformers/vitalcare";
@@ -49,7 +49,7 @@ app.post("/trigger-etl/:customerId", async (req: Request, res: Response) => {
 
     // Step 3: Upload transformed data to Firebase Storage
     console.log("Uploading transformed data to Firebase Storage...");
-    await uploadToFirestore(customerId, jsonData);
+    await uploadHierarchyToStorage(customerId, jsonData);
     console.log("Data upload complete");
 
     // Step 4: Delete local data folder
@@ -85,7 +85,7 @@ app.post(
 
       // Step 2: Upload transformed data to Firebase Storage
       console.log("Uploading transformed data to Firebase Storage...");
-      await uploadToFirestore(customerId, jsonData);
+      await uploadHierarchyToStorage(customerId, jsonData);
       console.log("Data upload complete");
 
       res.status(200).send("ETL process completed successfully");
@@ -104,7 +104,7 @@ app.get("/table-data/:customerId", async (req: Request, res: Response) => {
     const customerId = req.params.customerId;
     getBucketName(customerId); // Validate customer ID
 
-    const data = await getFromFirestore(customerId);
+    const data = await getHierarchyFromStorage(customerId);
 
     res.setHeader("Content-Type", "application/json");
     res.json(data);

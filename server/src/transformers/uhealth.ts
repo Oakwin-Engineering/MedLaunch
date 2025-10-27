@@ -30,6 +30,12 @@ import {
   processProviderFacilityRelationshipsUHealth,
   processADPProviderPayrollMonthlyUHealth,
 } from "../etl/etlUhealth";
+import {
+  uploadHierarchyToStorage,
+  storeProviderSummaries,
+  storeProviderMetrics,
+  storePracticeSummary,
+} from "../services/firebase";
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -475,6 +481,8 @@ async function processYearDataUHealth(year: string): Promise<Node[]> {
       const { facilityProviders, providerFacilities } =
         await processProviderFacilityRelationshipsUHealth(allDataPath);
 
+      // console.log(facilityProviders, providerFacilities);
+
       // Merge relationships
       for (const [facility, providers] of Object.entries(facilityProviders)) {
         if (!mergedFacilityProviders[facility]) {
@@ -705,6 +713,13 @@ export async function uHealthTransform(): Promise<object> {
       providerRankingsByYear[year] = calculateProviderRankingsUHealth(items);
       operationalMetricsByYear[year] =
         calculateOperationalMetricsUHealth(items);
+
+      // Store individual entities in Firestore
+      await storeUHealthDataInFirestore(
+        year,
+        items,
+        operationalMetricsByYear[year]
+      );
     } catch (err) {
       console.error(`Error processing year ${year}:`, err);
     }
@@ -718,5 +733,80 @@ export async function uHealthTransform(): Promise<object> {
     clinical: {},
   };
 
+  // Upload full hierarchy to Firebase Storage
+  await uploadHierarchyToStorage("uhealth", dashboardData);
+
   return dashboardData;
+}
+
+/**
+ * Stores UHealth data in Firestore collections
+ */
+async function storeUHealthDataInFirestore(
+  year: string,
+  items: Node[],
+  operationalMetrics: any
+): Promise<void> {
+  console.log(`\n📦 Storing ${year} data in Firestore...`);
+
+  // Extract provider data from hierarchy
+  const providerSummaries: Array<{
+    id: string;
+    name: string;
+    totalCharges?: number;
+    totalPayments?: number;
+    totalPayroll?: number;
+    totalOperatingProfit?: number;
+  }> = [];
+
+  // Traverse the hierarchy to extract providers and facilities
+  for (const stateNode of items) {
+    if (stateNode.id === "all-providers") {
+      // Skip the "All Providers" aggregation node
+      continue;
+    }
+
+    if (stateNode.children) {
+      for (const divisionNode of stateNode.children) {
+        if (divisionNode.children) {
+          for (const facilityNode of divisionNode.children) {
+            // Store facility-level provider metrics
+            if (facilityNode.children) {
+              for (const providerNode of facilityNode.children) {
+                const providerId = providerNode.id;
+                const providerName = providerNode.label;
+
+                // Add to provider summaries
+                providerSummaries.push({
+                  id: providerId,
+                  name: providerName,
+                  totalCharges: providerNode.data.charges.total,
+                  totalPayments: providerNode.data.payments.total,
+                  totalPayroll: providerNode.data.payroll.total,
+                  totalOperatingProfit: providerNode.data.operatingProfit.total,
+                });
+
+                // Store detailed metrics for this provider
+                await storeProviderMetrics(
+                  "uhealth",
+                  year,
+                  providerId,
+                  providerName,
+                  providerNode.data
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Store provider summaries (creates/updates provider documents)
+  if (providerSummaries.length > 0) {
+    await storeProviderSummaries("uhealth", year, providerSummaries);
+  }
+
+  // Store practice summary for the year
+  await storePracticeSummary("uhealth", year, operationalMetrics);
 }

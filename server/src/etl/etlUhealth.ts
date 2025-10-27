@@ -17,7 +17,9 @@ export async function loadStateDivisionMapping(
     const mapping: Record<string, LocationMapping> = {};
 
     fs.createReadStream(path)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
         const state = row["State"] || row["state"];
         const division = row["Division"] || row["division"];
@@ -40,18 +42,19 @@ export async function loadStateDivisionMapping(
  */
 async function processCSVUHealth(
   filePath: string,
-  keyIdx: number,
-  amountIdx: number
+  keyHeader: string,
+  amountHeader: string
 ): Promise<Record<string, number>> {
   return new Promise((resolve, reject) => {
     const totals: Record<string, number> = {};
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const key = values[keyIdx]?.trim();
-        const amountStr = values[amountIdx]?.trim();
+        const key = row[keyHeader]?.trim();
+        const amountStr = row[amountHeader]?.trim();
 
         if (!key || !amountStr) return;
 
@@ -71,7 +74,7 @@ async function processCSVUHealth(
 export async function processChargesByClinicUHealth(
   filePath: string
 ): Promise<Record<string, number>> {
-  return processCSVUHealth(filePath, 0, 2); // facility_name at index 0, insurance_billed_amount at index 2
+  return processCSVUHealth(filePath, "facility_name", "insurance_billed_amount");
 }
 
 /**
@@ -80,7 +83,7 @@ export async function processChargesByClinicUHealth(
 export async function processChargesByProviderUHealth(
   filePath: string
 ): Promise<Record<string, number>> {
-  return processCSVUHealth(filePath, 0, 4); // provider_name at index 0, insurance_billed_amount at index 4
+  return processCSVUHealth(filePath, "provider_name", "insurance_billed_amount");
 }
 
 /**
@@ -89,7 +92,7 @@ export async function processChargesByProviderUHealth(
 export async function processCollectionsByFacilityUHealth(
   filePath: string
 ): Promise<Record<string, number>> {
-  return processCSVUHealth(filePath, 0, 3); // facility_name at index 0, total_payments at index 3
+  return processCSVUHealth(filePath, "facility_name", "total_payments");
 }
 
 /**
@@ -98,7 +101,7 @@ export async function processCollectionsByFacilityUHealth(
 export async function processCollectionsByProviderUHealth(
   filePath: string
 ): Promise<Record<string, number>> {
-  return processCSVUHealth(filePath, 0, 3); // provider_name at index 0, total_payments at index 3
+  return processCSVUHealth(filePath, "provider_name", "total_payments");
 }
 
 /**
@@ -107,7 +110,7 @@ export async function processCollectionsByProviderUHealth(
 export async function processVisitsByClinicUHealth(
   filePath: string
 ): Promise<Record<string, number>> {
-  return processCSVUHealth(filePath, 0, 3); // facility_name at index 0, encounters_billed at index 3
+  return processCSVUHealth(filePath, "facility_name", "encounters_billed");
 }
 
 /**
@@ -116,7 +119,7 @@ export async function processVisitsByClinicUHealth(
 export async function processVisitsByProviderUHealth(
   filePath: string
 ): Promise<Record<string, number>> {
-  return processCSVUHealth(filePath, 0, 1); // provider_name at index 0, encounters_billed at index 1
+  return processCSVUHealth(filePath, "provider_name", "encounters_billed");
 }
 
 /**
@@ -129,14 +132,18 @@ export async function processProviderCodeRelationshipsUHealth(
     const providerCodes: Record<string, Record<string, number>> = {};
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const code = values[0]?.trim();
-        const provider = values[1]?.trim();
-        const encountersBilled = parseInt(values[2]?.trim(), 10);
+        const code = row["code"]?.trim();
+        const provider = row["provider_name"]?.trim();
+        const encountersBilledStr = row["encounters_billed"]?.trim();
 
-        if (!code || !provider || isNaN(encountersBilled)) return;
+        if (!code || !provider || !encountersBilledStr) return;
+
+        const encountersBilled = parseInt(encountersBilledStr, 10);
+        if (isNaN(encountersBilled)) return;
 
         if (!providerCodes[provider]) {
           providerCodes[provider] = {};
@@ -159,18 +166,16 @@ export function processProviderFacilityRelationshipsUHealth(
   providerFacilities: Record<string, string[]>;
 }> {
   return new Promise((resolve, reject) => {
-    const facilityIndex = 7;
-    const providerIndex = 5;
-
     const facilityProviders: Record<string, Record<string, boolean>> = {};
     const providerFacilities: Record<string, string[]> = {};
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const facility = values[facilityIndex]?.trim();
-        const provider = values[providerIndex]?.trim();
+        const facility = row["facility_name"]?.trim();
+        const provider = row["rendering_provider_name"]?.trim();
 
         if (!facility || !provider) return;
 
@@ -205,12 +210,13 @@ export async function processADPProviderPayrollMonthlyUHealth(
     const providerSet = new Set<string>();
 
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on("data", (row: any) => {
-        const values = Object.values(row) as string[];
-        const name = values[0]?.replace(/"/g, "").trim();
-        const payDate = values[5];
-        let grossPay = values[6];
+        const name = row["NAME"]?.replace(/"/g, "").trim();
+        const payDate = row["PAY DATE"];
+        let grossPay = row["GROSS PAY"];
 
         if (!name || !payDate || !grossPay) return;
 

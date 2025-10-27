@@ -1,5 +1,6 @@
-import { initializeApp, applicationDefault } from "firebase-admin/app";
+import { initializeApp, cert } from "firebase-admin/app";
 import { getStorage } from "firebase-admin/storage";
+import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
@@ -7,13 +8,26 @@ import { promisify } from "util";
 const mkdir = promisify(fs.mkdir);
 const rmdir = promisify(fs.rm);
 
-// Initialize Firebase Admin with Application Default Credentials
+// Initialize Firebase Admin with Service Account
+const serviceAccount = require("../../medlaunch-8f4c7-firebase-adminsdk-fbsvc-b144473408.json");
+
 initializeApp({
+  credential: cert(serviceAccount),
   storageBucket: "medlaunch-8f4c7.firebasestorage.app",
-  credential: applicationDefault(),
 });
 
 const bucket = getStorage().bucket();
+const db = getFirestore();
+
+/**
+ * Gets collection name with customer prefix
+ * @param customerId - The customer ID (e.g., "uhealth", "vitalcare")
+ * @param collectionName - The base collection name
+ * @returns Prefixed collection name
+ */
+function getCollectionName(customerId: string, collectionName: string): string {
+  return `${customerId}_${collectionName}`;
+}
 
 /**
  * Downloads all files from Firebase Storage for a specific customer to a local directory
@@ -58,11 +72,11 @@ export async function downloadFromFirebaseStorage(
 }
 
 /**
- * Uploads transformed data to Firebase Storage
+ * Uploads transformed hierarchy data to Firebase Storage
  * @param customerId - The customer ID (e.g., "uhealth" or "vitalcare")
  * @param data - The transformed JSON data to store
  */
-export async function uploadToFirestore(
+export async function uploadHierarchyToStorage(
   customerId: string,
   data: object
 ): Promise<void> {
@@ -88,11 +102,13 @@ export async function uploadToFirestore(
 }
 
 /**
- * Retrieves transformed data from Firebase Storage
+ * Retrieves transformed hierarchy data from Firebase Storage
  * @param customerId - The customer ID
  * @returns The parsed JSON data
  */
-export async function getFromFirestore(customerId: string): Promise<any> {
+export async function getHierarchyFromStorage(
+  customerId: string
+): Promise<any> {
   try {
     // Retrieve from top-level transformed folder: {customerId}-transformed/
     const fileName = `${customerId}-transformed/hierarchy.json`;
@@ -124,5 +140,126 @@ export async function deleteLocalData(dirPath: string): Promise<void> {
     console.log(`Successfully deleted local data directory: ${dirPath}`);
   } catch (err) {
     throw new Error(`Failed to delete directory ${dirPath}: ${err}`);
+  }
+}
+
+/**
+ * Stores provider summary data in Firestore
+ * @param customerId - The customer ID (e.g., "uhealth", "vitalcare")
+ * @param year - The year of the data
+ * @param providerData - Array of provider summaries with name and metrics
+ */
+export async function storeProviderSummaries(
+  customerId: string,
+  year: string,
+  providerData: Array<{
+    id: string;
+    name: string;
+    totalPatientCount?: number;
+    totalRVUs?: number;
+    totalCharges?: number;
+    totalPayments?: number;
+    totalPayroll?: number;
+    totalOperatingProfit?: number;
+  }>
+): Promise<void> {
+  try {
+    const batch = db.batch();
+    let operationCount = 0;
+
+    for (const provider of providerData) {
+      const docRef = db
+        .collection(getCollectionName(customerId, "providers"))
+        .doc(provider.id);
+      batch.set(
+        docRef,
+        {
+          name: provider.name,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      operationCount++;
+
+      // Firestore batch limit is 500 operations
+      if (operationCount >= 500) {
+        await batch.commit();
+        operationCount = 0;
+      }
+    }
+
+    if (operationCount > 0) {
+      await batch.commit();
+    }
+
+    console.log(
+      `✅ Stored ${providerData.length} providers in Firestore (${customerId} database)`
+    );
+  } catch (err) {
+    throw new Error(`Failed to store provider summaries: ${err}`);
+  }
+}
+
+/**
+ * Stores detailed provider metrics by year in Firestore
+ * @param customerId - The customer ID (e.g., "uhealth", "vitalcare")
+ * @param year - The year of the data
+ * @param providerId - The provider's unique ID
+ * @param providerName - The provider's name
+ * @param metrics - The full metrics object with monthly data
+ */
+export async function storeProviderMetrics(
+  customerId: string,
+  year: string,
+  providerId: string,
+  providerName: string,
+  metrics: any
+): Promise<void> {
+  try {
+    const docId = `${providerId}_${year}`;
+    await db
+      .collection(getCollectionName(customerId, "providerMetrics"))
+      .doc(docId)
+      .set({
+        providerId,
+        providerName,
+        year,
+        ...metrics,
+        updatedAt: new Date().toISOString(),
+      });
+  } catch (err) {
+    throw new Error(
+      `Failed to store metrics for provider ${providerId}: ${err}`
+    );
+  }
+}
+
+/**
+ * Stores practice-wide summaries by year in Firestore
+ * @param customerId - The customer ID (e.g., "uhealth", "vitalcare")
+ * @param year - The year of the data
+ * @param summaryData - The aggregated practice summary metrics
+ */
+export async function storePracticeSummary(
+  customerId: string,
+  year: string,
+  summaryData: any
+): Promise<void> {
+  try {
+    await db
+      .collection(getCollectionName(customerId, "practiceSummaries"))
+      .doc(year)
+      .set({
+        year,
+        ...summaryData,
+        updatedAt: new Date().toISOString(),
+      });
+
+    console.log(
+      `✅ Stored practice summary for ${year} in Firestore (${customerId} database)`
+    );
+  } catch (err) {
+    throw new Error(`Failed to store practice summary for ${year}: ${err}`);
   }
 }

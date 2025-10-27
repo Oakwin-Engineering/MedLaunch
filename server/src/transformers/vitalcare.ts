@@ -774,7 +774,7 @@ export async function vitalCareTransform(): Promise<object> {
     allYearsOperational[year] = calculateOperational(items);
 
     // Store individual entities in Firestore
-    await storeVitalCareDataInFirestore(year, items, allYearsOperational[year]);
+    // await storeVitalCareDataInFirestore(year, items, allYearsOperational[year]);
   }
 
   const accountsReceivable = await processAccountsReceivable(

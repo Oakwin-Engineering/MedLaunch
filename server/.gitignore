@@ -4,6 +4,4 @@ dist/
 *.log
 .DS_Store
 tmp/
-medlaunch-8f4c7-firebase-adminsdk-fbsvc-71dc87bf72.json
-medlaunch-8f4c7-firebase-adminsdk-fbsvc-b144473408.json
-*-firebase-adminsdk-*.json
+

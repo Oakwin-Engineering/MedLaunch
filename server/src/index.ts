@@ -7,6 +7,7 @@ import {
   getAllDashboardData,
   storeAllDashboardData,
   deleteLocalData,
+  exportCustomerDataAsCSV,
 } from "./services/firebase";
 import { vitalCareTransform } from "./transformers/vitalcare";
 import { uHealthTransform } from "./transformers/uhealth";
@@ -133,6 +134,34 @@ app.get("/download-data/:customerId", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error downloading data:", error);
     res.status(500).send(`Error downloading data: ${error}`);
+  }
+});
+
+/**
+ * Endpoint to download customer data as CSV
+ */
+app.get("/download-csv/:customerId", async (req: Request, res: Response) => {
+  try {
+    const customerId = req.params.customerId;
+    getBucketName(customerId); // Validate customer ID
+
+    console.log(`Generating CSV for customer: ${customerId}`);
+
+    // Generate CSV from customer data
+    const csvData = await exportCustomerDataAsCSV(customerId);
+
+    console.log(`CSV generated successfully for customer: ${customerId}`);
+
+    // Set headers for CSV download
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${customerId}-data.csv"`
+    );
+    res.send(csvData);
+  } catch (error) {
+    console.error("Error generating CSV:", error);
+    res.status(500).send(`Error generating CSV: ${error}`);
   }
 });
 

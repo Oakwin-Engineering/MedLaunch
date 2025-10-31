@@ -9,8 +9,8 @@
   import { store } from "../store.svelte";
 
   const iconMap: Record<string, any> = {
-    clinic: BuildingSolid,
-    person: UserSolid,
+    location: BuildingSolid,
+    provider: UserSolid,
     division: MapPinSolid,
     state: MapPinSolid,
   };
@@ -23,7 +23,7 @@
     store.selectedNode = node;
   };
 
-  const IconComponent = $derived(iconMap[node.iconType]);
+  const IconComponent = $derived(iconMap[node.type]);
   const isParent = $derived(node.children && node.children.length > 0);
   const isSelected = $derived(
     store.selectedNode && store.selectedNode.id === node.id

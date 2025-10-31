@@ -134,11 +134,3 @@ export function sumOrAverage(divisor: number, numerator: number): number {
 export function formatPercentage(value: number, total: number): string {
   return total > 0 ? `${((value / total) * 100).toFixed(2)}%` : "0.00%";
 }
-
-export function sortNodes(items: Node[]): void {
-  items.sort((a, b) => {
-    if (a.label === "All Providers") return -1;
-    if (b.label === "All Providers") return 1;
-    return a.label.localeCompare(b.label);
-  });
-}

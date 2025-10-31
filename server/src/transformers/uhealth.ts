@@ -30,6 +30,7 @@ import {
   processProviderFacilityRelationshipsUHealth,
   processADPProviderPayrollMonthlyUHealth,
 } from "../etl/etlUhealth";
+import { allScriptsTransform } from "./allscripts";
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
@@ -626,17 +627,7 @@ async function processYearDataUHealth(year: string): Promise<Node[]> {
     data: allProvidersBuilder.buildNodeData(),
   };
 
-  // Sort and prepend "All Providers"
-  items.sort((a, b) => a.label.localeCompare(b.label));
-
-  for (const stateNode of items) {
-    stateNode.children!.sort((a, b) => a.label.localeCompare(b.label));
-    for (const divisionNode of stateNode.children!) {
-      divisionNode.children!.sort((a, b) => a.label.localeCompare(b.label));
-    }
-  }
-
-  items.unshift(allProvidersNode);
+  items.push(allProvidersNode);
 
   return items;
 }
@@ -724,6 +715,13 @@ export async function uHealthTransform(): Promise<object> {
     operational: operationalMetricsByYear,
     clinical: {},
   };
+
+  // Process AllScripts data and write to local JSON
+  try {
+    await allScriptsTransform();
+  } catch (err) {
+    console.error("Error processing AllScripts data:", err);
+  }
 
   // Return all transformed data
   return allData;

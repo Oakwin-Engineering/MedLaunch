@@ -42,7 +42,7 @@ export const filterEntity = (
     const findProvidersRecursively = (nodesToSearch: any[]): any[] => {
       let providers: any[] = [];
       for (const node of nodesToSearch) {
-        if (node.iconType === "person") {
+        if (node.type === "provider") {
           providers.push(node);
         }
         if (node.children && node.children.length > 0) {
@@ -53,6 +53,8 @@ export const filterEntity = (
     };
 
     const allProviders = findProvidersRecursively(nodes);
+
+    console.log(nodes);
 
     const matchingProviders = allProviders.filter((provider) =>
       provider.label.toLowerCase().includes(lowerCaseTerm)
@@ -139,4 +141,35 @@ export const groupByLabel = (codes: CodeRow[]): GroupedLabel[] => {
     });
 
   return ordered;
+};
+
+/**
+ * Gets the active dashboard data based on the selected data source
+ * @param allDashboards - All dashboard data including AllScripts
+ * @param dataSource - The selected data source ("athelas" or "allscripts")
+ * @returns The active dashboard data
+ */
+export const getActiveData = (allDashboards: any, dataSource: string) => {
+  // Handle case where allDashboards might not be loaded yet
+  if (!allDashboards) {
+    return {
+      providerPerformance: {},
+      providerRankings: {},
+      operational: {},
+      financial: {},
+      clinical: {},
+    };
+  }
+
+  if (dataSource === "allscripts" && allDashboards.allscripts) {
+    return allDashboards.allscripts;
+  }
+  
+  return {
+    providerPerformance: allDashboards.providerPerformance || {},
+    providerRankings: allDashboards.providerRankings || {},
+    operational: allDashboards.operational || {},
+    financial: allDashboards.financial || {},
+    clinical: allDashboards.clinical || {},
+  };
 };

@@ -50,26 +50,30 @@
     "2025": "#10B981", // Green
   };
 
-  // Create datasets for each year
-  const datasets = Object.keys(data)
-    .sort()
-    .map((year) => {
-      const yearData = data[year];
-      const values = yearData[metric] || [];
+  // Create datasets for each year - make reactive with $derived
+  const datasets = $derived(
+    Object.keys(data)
+      .sort()
+      .map((year) => {
+        const yearData = data[year];
+        const values = yearData[metric] || [];
 
-      return {
-        name: year,
-        data: values,
-        color: yearColors[year] || "#6B7280",
-      };
-    });
-
-  // Check if any year has data for this metric
-  const hasData = datasets.some((dataset) => 
-    dataset.data && dataset.data.length > 0 && dataset.data.some((val) => val > 0)
+        return {
+          name: year,
+          data: values,
+          color: yearColors[year] || "#6B7280",
+        };
+      })
   );
 
-  const chartOptions = {
+  // Check if any year has data for this metric - make reactive with $derived
+  const hasData = $derived(
+    datasets.some((dataset) => 
+      dataset.data && dataset.data.length > 0 && dataset.data.some((val) => val > 0)
+    )
+  );
+
+  const chartOptions = $derived({
     chart: {
       height: "400px",
       maxWidth: "100%",
@@ -157,7 +161,7 @@
         },
       },
     },
-  };
+  });
 </script>
 
 {#if hasData}

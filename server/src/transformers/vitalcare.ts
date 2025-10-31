@@ -631,9 +631,8 @@ async function processYearData(dataSources: DataSources): Promise<Node[]> {
     dataSources,
     namesMapping
   );
-  items.push(allProvidersNode);
 
-  sortNodes(items);
+  items.push(allProvidersNode);
 
   return items;
 }

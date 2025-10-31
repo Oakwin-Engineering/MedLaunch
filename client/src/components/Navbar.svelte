@@ -3,16 +3,17 @@
   import { FilePdfOutline, BarsOutline } from "flowbite-svelte-icons";
   import { store } from "../store.svelte";
 
-  const dashboardNames: Record<string, string> = {
+  const pageNames: Record<string, string> = {
     ProviderRankings: "Provider Rankings",
     ProviderPerformance: "Provider Performance Dashboard",
     FinancialDashboard: "Financial Dashboard",
     OperationalDashboard: "Operational Dashboard",
     ClinicalDashboard: "Clinical Dashboard",
+    DataSources: "Data Sources",
   };
 
-  const currentDashboardName = $derived(
-    dashboardNames[store.currentDashboard] || "Dashboard"
+  const currentPageName = $derived(
+    pageNames[store.currentDashboard] || "Dashboard"
   );
 </script>
 
@@ -28,7 +29,7 @@
   </button>
 
   <span class="text-xl font-bold text-blue-600">
-    {currentDashboardName}
+    {currentPageName}
   </span>
 
   <div class="ml-auto flex items-center gap-2">

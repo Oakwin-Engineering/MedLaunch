@@ -2,13 +2,15 @@
   import { store } from "../../../store.svelte";
   import RankingsChart from "../../../components/RankingsChart.svelte";
   import YearSelector from "../../../components/YearSelector.svelte";
+  import DataSourceToggle from "../../../components/DataSourceToggle.svelte";
+  import { getActiveData } from "../../../utils/utils";
 
   // Set current dashboard
   store.currentDashboard = "ProviderRankings";
 
-  const availableYears = Object.keys(
-    store.allDashboards.providerRankings || {}
-  );
+  // Get active data based on selected data source
+  const activeData = $derived(getActiveData(store.allDashboards, store.dataSource));
+  const availableYears = $derived(Object.keys(activeData.providerRankings || {}));
 
   // Get current year
   const currentYear = String(new Date().getFullYear());
@@ -23,7 +25,7 @@
 
   // Helper function to sort and extract data from rankings object
   function getRankingsData(metricName: string, year: string) {
-    const yearData = store.allDashboards.providerRankings?.[year];
+    const yearData = activeData.providerRankings?.[year];
     if (!yearData || !yearData[metricName]) {
       return { data: [], categories: [] };
     }
@@ -52,7 +54,10 @@
 </script>
 
 <div class="mt-16 p-4 max-w-7xl mx-auto">
-  <YearSelector {availableYears} {activeYear} onYearChange={handleYearChange} />
+  <div class="flex gap-4 items-center mb-6">
+    <YearSelector {availableYears} {activeYear} onYearChange={handleYearChange} />
+    <DataSourceToggle />
+  </div>
 
   <RankingsChart
     title="Total Patients Seen Year to Date {activeYear}"

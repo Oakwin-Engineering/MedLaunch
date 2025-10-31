@@ -2,7 +2,7 @@
   import { Search, Button, Dropdown, DropdownItem } from "flowbite-svelte";
   import { ChevronDownOutline } from "flowbite-svelte-icons";
   import SidebarNode from "./SidebarNode.svelte";
-  import { filterEntity } from "../utils/utils";
+  import { filterEntity, getActiveData } from "../utils/utils";
   import { DropdownItems } from "../constants/index";
   import { store } from "../store.svelte";
 
@@ -11,10 +11,13 @@
   let searchTerm = $state("");
   let isOpen = $state(false);
 
+  // Get active data based on selected data source
+  const activeData = $derived(getActiveData(store.allDashboards, store.dataSource));
+
   // filtered data reacts to changes in state
   let filteredData = $derived(
     filterEntity(
-      store.allDashboards.providerPerformance[activeYear],
+      activeData.providerPerformance[activeYear] || [],
       searchTerm,
       store.sidebarCategory
     )

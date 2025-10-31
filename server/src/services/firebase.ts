@@ -140,7 +140,61 @@ export async function deleteLocalData(dirPath: string): Promise<void> {
 }
 
 /**
- * Stores a hierarchical node in Firestore (works for any hierarchy structure)
+ * Stores multiple hierarchical nodes in Firestore using batch operations
+ * @param customerId - The customer ID
+ * @param nodesData - Array of node data to store
+ */
+export async function storeHierarchyNodesBatch(
+  customerId: string,
+  nodesData: {
+    id: string;
+    label: string;
+    type: string; // 'state', 'division', 'location', 'provider', etc.
+    parentId?: string | null;
+    year: string;
+    data: any;
+  }[]
+): Promise<void> {
+  try {
+    const db = getCustomerDb(customerId);
+
+    // Firestore batch limit is 500 operations
+    const BATCH_SIZE = 500;
+
+    for (let i = 0; i < nodesData.length; i += BATCH_SIZE) {
+      const batch = db.batch();
+      const chunk = nodesData.slice(i, i + BATCH_SIZE);
+
+      for (const nodeData of chunk) {
+        const docRef = db
+          .collection("nodes")
+          .doc(`${nodeData.id}_${nodeData.year}`);
+
+        batch.set(docRef, {
+          id: nodeData.id,
+          label: nodeData.label,
+          type: nodeData.type,
+          parentId: nodeData.parentId || null,
+          year: nodeData.year,
+          data: nodeData.data,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      await batch.commit();
+      console.log(
+        `✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}: Stored ${
+          chunk.length
+        } nodes`
+      );
+    }
+  } catch (err) {
+    throw new Error(`Failed to store nodes in batch: ${err}`);
+  }
+}
+
+/**
+ * Stores a single hierarchical node in Firestore (legacy function for compatibility)
  * @param customerId - The customer ID
  * @param nodeData - The node data to store
  */
@@ -155,29 +209,72 @@ export async function storeHierarchyNode(
     data: any;
   }
 ): Promise<void> {
-  try {
-    const db = getCustomerDb(customerId);
-
-    await db
-      .collection("nodes")
-      .doc(`${nodeData.id}_${nodeData.year}`)
-      .set({
-        id: nodeData.id,
-        label: nodeData.label,
-        type: nodeData.type,
-        parentId: nodeData.parentId || null,
-        year: nodeData.year,
-        data: nodeData.data,
-        updatedAt: new Date().toISOString(),
-      });
-  } catch (err) {
-    throw new Error(`Failed to store ${nodeData.type} node: ${err}`);
-  }
+  return storeHierarchyNodesBatch(customerId, [nodeData]);
 }
 
 /**
- * Recursively stores a hierarchy tree in Firestore
- * Works for any depth and structure
+ * Flattens hierarchy tree into array for batch processing
+ * @param nodes - Array of nodes to flatten
+ * @param year - The year of the data
+ * @param parentId - The parent node ID (null for root nodes)
+ * @returns Flattened array of all nodes
+ */
+function flattenHierarchyNodes(
+  nodes: any[],
+  year: string,
+  parentId: string | null
+): {
+  id: string;
+  label: string;
+  type: string;
+  parentId: string | null;
+  year: string;
+  data: any;
+}[] {
+  const flattened: {
+    id: string;
+    label: string;
+    type: string;
+    parentId: string | null;
+    year: string;
+    data: any;
+  }[] = [];
+
+  function processNode(node: any, currentParentId: string | null) {
+    // Store all-providers nodes at the top level
+    const nodeParentId = node.id === "all-providers" ? null : currentParentId;
+
+    flattened.push({
+      id: node.id,
+      label: node.label,
+      type: node.type,
+      parentId: nodeParentId,
+      year,
+      data: node.data,
+    });
+
+    // Recursively process children if they exist (skip for all-providers as it's a leaf node)
+    if (
+      node.children &&
+      node.children.length > 0 &&
+      node.id !== "all-providers"
+    ) {
+      for (const child of node.children) {
+        processNode(child, node.id);
+      }
+    }
+  }
+
+  for (const node of nodes) {
+    processNode(node, parentId);
+  }
+
+  return flattened;
+}
+
+/**
+ * Recursively stores a hierarchy tree in Firestore (legacy function for compatibility)
+ * Uses batch operations for performance
  * @param customerId - The customer ID
  * @param nodes - Array of nodes to store
  * @param year - The year of the data
@@ -189,36 +286,13 @@ async function storeNodesRecursively(
   year: string,
   parentId: string | null
 ): Promise<void> {
-  for (const node of nodes) {
-    // Skip special aggregation nodes
-    if (node.id === "all-providers") {
-      continue;
-    }
-
-    // Store this node (type comes from the node itself)
-    await storeHierarchyNode(customerId, {
-      id: node.id,
-      label: node.label,
-      type: node.type,
-      parentId,
-      year,
-      data: node.data,
-    });
-
-    // Recursively store children if they exist
-    if (node.children && node.children.length > 0) {
-      await storeNodesRecursively(
-        customerId,
-        node.children,
-        year,
-        node.id
-      );
-    }
-  }
+  const flattenedNodes = flattenHierarchyNodes(nodes, year, parentId);
+  await storeHierarchyNodesBatch(customerId, flattenedNodes);
 }
 
 /**
  * Stores complete hierarchy for a customer and year in Firestore
+ * Uses optimized batch operations for performance
  * @param customerId - The customer ID
  * @param year - The year of the data
  * @param hierarchyData - The root nodes of the hierarchy
@@ -230,8 +304,11 @@ export async function storeCompleteHierarchy(
 ): Promise<void> {
   console.log(`\n📦 Storing ${year} hierarchy in Firestore...`);
 
-  // Store all nodes recursively (type comes from each node)
-  await storeNodesRecursively(customerId, hierarchyData, year, null);
+  // Flatten hierarchy and store in batches for maximum performance
+  const flattenedNodes = flattenHierarchyNodes(hierarchyData, year, null);
+  console.log(`📊 Processing ${flattenedNodes.length} total nodes...`);
+
+  await storeHierarchyNodesBatch(customerId, flattenedNodes);
 
   console.log(`✅ Stored complete hierarchy for ${year}`);
 }
@@ -286,49 +363,86 @@ export async function storeAllDashboardData(
 /**
  * Retrieves all dashboard data from Firestore
  * @param customerId - The customer ID
- * @returns Complete dashboard data with all metrics
+ * @returns Complete dashboard data with all metrics, including AllScripts data
  */
 export async function getAllDashboardData(customerId: string): Promise<any> {
   try {
     const db = getCustomerDb(customerId);
 
-    // Fetch all collections in parallel
-    const [nodesSnap, rankingsSnap, operationalSnap, financialSnap] =
-      await Promise.all([
-        db.collection("nodes").get(),
-        db.collection("providerRankings").get(),
-        db.collection("operationalMetrics").get(),
-        db.collection("financialMetrics").get(),
-      ]);
+    // Fetch all collections in parallel (including AllScripts)
+    const [
+      nodesSnap,
+      rankingsSnap,
+      operationalSnap,
+      financialSnap,
+      allscriptsNodesSnap,
+      allscriptsRankingsSnap,
+      allscriptsOperationalSnap,
+    ] = await Promise.all([
+      db.collection("nodes").get(),
+      db.collection("providerRankings").get(),
+      db.collection("operationalMetrics").get(),
+      db.collection("financialMetrics").get(),
+      db.collection("allscripts_nodes").get(),
+      db.collection("allscripts_providerRankings").get(),
+      db.collection("allscripts_operationalMetrics").get(),
+    ]);
 
-    // Build hierarchy from nodes
+    // Build hierarchy from nodes (Athelas data)
     const hierarchiesByYear = await buildHierarchyFromNodes(nodesSnap);
 
-    // Build rankings by year
+    // Build rankings by year (Athelas data)
     const rankingsByYear: Record<string, any> = {};
     rankingsSnap.forEach((doc) => {
       const data = doc.data();
       rankingsByYear[data.year] = data;
     });
 
-    // Build operational metrics by year
+    // Build operational metrics by year (Athelas data)
     const operationalByYear: Record<string, any> = {};
     operationalSnap.forEach((doc) => {
       const data = doc.data();
       operationalByYear[data.year] = data;
     });
 
-    // Get financial data
+    // Get financial data (Athelas data)
     let financialData = {};
     financialSnap.forEach((doc) => {
       financialData = doc.data();
     });
 
+    // Build AllScripts hierarchy from nodes
+    const allscriptsHierarchiesByYear = await buildHierarchyFromNodes(
+      allscriptsNodesSnap
+    );
+
+    // Build AllScripts rankings by year
+    const allscriptsRankingsByYear: Record<string, any> = {};
+    allscriptsRankingsSnap.forEach((doc) => {
+      const data = doc.data();
+      allscriptsRankingsByYear[data.year] = data;
+    });
+
+    // Build AllScripts operational metrics by year
+    const allscriptsOperationalByYear: Record<string, any> = {};
+    allscriptsOperationalSnap.forEach((doc) => {
+      const data = doc.data();
+      allscriptsOperationalByYear[data.year] = data;
+    });
+
     return {
+      // Athelas data
       providerPerformance: hierarchiesByYear,
       providerRankings: rankingsByYear,
       operational: operationalByYear,
       financial: financialData,
+      // AllScripts data
+      allscripts: {
+        providerPerformance: allscriptsHierarchiesByYear,
+        providerRankings: allscriptsRankingsByYear,
+        operational: allscriptsOperationalByYear,
+        financial: {},
+      },
     };
   } catch (err) {
     throw new Error(`Failed to retrieve dashboard data from Firestore: ${err}`);
@@ -642,4 +756,352 @@ export async function storeFinancialMetrics(
   } catch (err) {
     throw new Error(`Failed to store financial metrics: ${err}`);
   }
+}
+
+/**
+ * Stores AllScripts hierarchy for a customer and year in Firestore
+ * Uses prefixed collection name: allscripts_nodes
+ * @param customerId - The customer ID (should be "uhealth")
+ * @param year - The year of the data
+ * @param hierarchyData - The root nodes of the hierarchy
+ */
+export async function storeAllScriptsHierarchy(
+  customerId: string,
+  year: string,
+  hierarchyData: any[]
+): Promise<void> {
+  console.log(`\n📦 Storing AllScripts ${year} hierarchy in Firestore...`);
+
+  const db = getCustomerDb(customerId);
+  const flattenedNodes = flattenHierarchyNodes(hierarchyData, year, null);
+  console.log(`📊 Processing ${flattenedNodes.length} AllScripts nodes...`);
+
+  // Firestore batch limit is 500 operations
+  const BATCH_SIZE = 500;
+
+  for (let i = 0; i < flattenedNodes.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = flattenedNodes.slice(i, i + BATCH_SIZE);
+
+    for (const nodeData of chunk) {
+      const docRef = db
+        .collection("allscripts_nodes")
+        .doc(`${nodeData.id}_${nodeData.year}`);
+
+      batch.set(docRef, {
+        id: nodeData.id,
+        label: nodeData.label,
+        type: nodeData.type,
+        parentId: nodeData.parentId || null,
+        year: nodeData.year,
+        data: nodeData.data,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    await batch.commit();
+    console.log(
+      `✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}: Stored ${
+        chunk.length
+      } AllScripts nodes`
+    );
+  }
+
+  console.log(`✅ Stored complete AllScripts hierarchy for ${year}`);
+}
+
+/**
+ * Stores AllScripts provider rankings by year in Firestore
+ * Uses prefixed collection name: allscripts_providerRankings
+ * @param customerId - The customer ID (should be "uhealth")
+ * @param year - The year of the data
+ * @param rankingsData - Provider rankings data
+ */
+export async function storeAllScriptsProviderRankings(
+  customerId: string,
+  year: string,
+  rankingsData: any
+): Promise<void> {
+  try {
+    const db = getCustomerDb(customerId);
+    await db
+      .collection("allscripts_providerRankings")
+      .doc(year)
+      .set({
+        year,
+        ...rankingsData,
+        updatedAt: new Date().toISOString(),
+      });
+  } catch (err) {
+    throw new Error(`Failed to store AllScripts provider rankings for ${year}: ${err}`);
+  }
+}
+
+/**
+ * Stores AllScripts operational metrics by year in Firestore
+ * Uses prefixed collection name: allscripts_operationalMetrics
+ * @param customerId - The customer ID (should be "uhealth")
+ * @param year - The year of the data
+ * @param operationalData - Operational metrics data
+ */
+export async function storeAllScriptsOperationalMetrics(
+  customerId: string,
+  year: string,
+  operationalData: any
+): Promise<void> {
+  try {
+    const db = getCustomerDb(customerId);
+    await db
+      .collection("allscripts_operationalMetrics")
+      .doc(year)
+      .set({
+        year,
+        ...operationalData,
+        updatedAt: new Date().toISOString(),
+      });
+  } catch (err) {
+    throw new Error(`Failed to store AllScripts operational metrics for ${year}: ${err}`);
+  }
+}
+
+/**
+ * Stores all AllScripts dashboard data in Firestore
+ * Uses prefixed collections: allscripts_nodes, allscripts_providerRankings, allscripts_operationalMetrics
+ * @param customerId - The customer ID (should be "uhealth")
+ * @param dashboardData - Complete AllScripts dashboard data from transformers
+ */
+export async function storeAllScriptsDashboardData(
+  customerId: string,
+  dashboardData: any
+): Promise<void> {
+  console.log(`\n🔄 Starting AllScripts Firestore storage for ${customerId}...`);
+
+  // Clear existing AllScripts Firestore data before storing new data
+  await clearAllScriptsFirestoreData(customerId);
+
+  // Extract dashboard data
+  const providerPerformance = dashboardData.providerPerformance;
+  const providerRankings = dashboardData.providerRankings;
+  const operational = dashboardData.operational;
+
+  // Store each year's data in Firestore
+  for (const year in providerPerformance) {
+    console.log(`  📅 Storing AllScripts ${year} data...`);
+
+    // Store hierarchy nodes
+    await storeAllScriptsHierarchy(customerId, year, providerPerformance[year]);
+
+    // Store provider rankings for this year
+    if (providerRankings && providerRankings[year]) {
+      await storeAllScriptsProviderRankings(customerId, year, providerRankings[year]);
+    }
+
+    // Store operational metrics for this year
+    if (operational && operational[year]) {
+      await storeAllScriptsOperationalMetrics(customerId, year, operational[year]);
+    }
+  }
+
+  console.log(`✅ Completed AllScripts Firestore storage for ${customerId}\n`);
+}
+
+/**
+ * Clears all AllScripts Firestore data for a specific customer
+ * @param customerId - The customer ID (should be "uhealth")
+ */
+export async function clearAllScriptsFirestoreData(
+  customerId: string
+): Promise<void> {
+  try {
+    console.log(`🗑️  Clearing AllScripts Firestore data for ${customerId}...`);
+
+    const db = getCustomerDb(customerId);
+    const collections = [
+      "allscripts_nodes",
+      "allscripts_providerRankings",
+      "allscripts_operationalMetrics",
+    ];
+
+    for (const collectionName of collections) {
+      const collectionRef = db.collection(collectionName);
+
+      // Delete in batches of 250 (conservative, to stay well under Firestore's 500 doc limit)
+      const batchSize = 250;
+      let deletedCount = 0;
+
+      while (true) {
+        const docs = await collectionRef.limit(batchSize).get();
+
+        if (docs.empty) break;
+
+        const batch = db.batch();
+        docs.forEach((doc) => {
+          batch.delete(doc.ref);
+          deletedCount++;
+        });
+
+        await batch.commit();
+      }
+
+      if (deletedCount > 0) {
+        console.log(
+          `  ✅ Deleted ${deletedCount} documents from ${collectionName}`
+        );
+      } else {
+        console.log(`  ℹ️  Collection ${collectionName} is already empty`);
+      }
+    }
+
+    console.log(`✅ Cleared all AllScripts Firestore data for ${customerId}`);
+  } catch (err) {
+    console.error(`Failed to clear AllScripts Firestore data for ${customerId}: ${err}`);
+    throw new Error(`Failed to clear AllScripts Firestore data: ${err}`);
+  }
+}
+
+/**
+ * Exports all customer data as CSV string
+ * @param customerId - The customer ID
+ * @returns CSV string of all provider data
+ */
+export async function exportCustomerDataAsCSV(
+  customerId: string
+): Promise<string> {
+  try {
+    const db = getCustomerDb(customerId);
+
+    // Get all nodes from the customer's database
+    const nodesSnapshot = await db.collection("nodes").get();
+
+    if (nodesSnapshot.empty) {
+      throw new Error("No data found for this customer");
+    }
+
+    // Extract all unique metric keys and CPT codes from the data
+    const allMetrics = new Set<string>();
+    const allCptCodes = new Set<string>();
+    const nodes: any[] = [];
+
+    nodesSnapshot.forEach((doc) => {
+      const nodeData = doc.data();
+      nodes.push(nodeData);
+
+      // Extract metric keys from the data object
+      if (nodeData.data) {
+        Object.keys(nodeData.data).forEach((key) => {
+          if (key !== "cptCodes") {
+            allMetrics.add(key);
+          }
+        });
+
+        // Extract unique CPT codes
+        const cptCodes = nodeData.data.cptCodes || [];
+        cptCodes.forEach((cpt: any) => {
+          if (cpt.code) {
+            allCptCodes.add(cpt.code);
+          }
+        });
+      }
+    });
+
+    // Sort metrics and CPT codes alphabetically for consistent column order
+    const sortedMetrics = Array.from(allMetrics).sort();
+    const sortedCptCodes = Array.from(allCptCodes).sort();
+
+    // Create CSV header
+    const headers = ["ID", "Label", "Type", "Parent ID", "Year"];
+
+    // Add headers for each CPT code: Code with coding % and monthly values
+    for (const cptCode of sortedCptCodes) {
+      headers.push(`CPT ${cptCode}`);
+      headers.push(`CPT ${cptCode} Values (Jan-Dec)`);
+      headers.push(`CPT ${cptCode} Total`);
+    }
+
+    // Add headers for each metric: Values (Jan-Dec) and Total
+    for (const metric of sortedMetrics) {
+      headers.push(`${metric} Values (Jan-Dec)`);
+      headers.push(`${metric} Total`);
+    }
+
+    let csvContent = headers.join(",") + "\n";
+
+    // Process each node and create CSV row
+    for (const node of nodes) {
+      const row = [
+        escapeCsvValue(node.id || ""),
+        escapeCsvValue(node.label || ""),
+        escapeCsvValue(node.type || ""),
+        escapeCsvValue(node.parentId || ""),
+        escapeCsvValue(node.year || ""),
+      ];
+
+      // Add CPT codes data
+      const cptCodesArray = node.data?.cptCodes || [];
+      const cptCodesMap = new Map();
+      cptCodesArray.forEach((cpt: any) => {
+        if (cpt.code) {
+          cptCodesMap.set(cpt.code, cpt);
+        }
+      });
+
+      for (const cptCode of sortedCptCodes) {
+        const cptData = cptCodesMap.get(cptCode);
+        if (cptData) {
+          // Add coding percentage
+          row.push(escapeCsvValue(cptData.coding || ""));
+
+          // Add monthly values
+          const values = cptData.values || [];
+          const monthlyValuesStr = Array.from(
+            { length: 12 },
+            (_, i) => values[i]?.toString() || "0"
+          ).join(";");
+          row.push(escapeCsvValue(monthlyValuesStr));
+
+          // Add total
+          row.push(escapeCsvValue(cptData.total?.toString() || "0"));
+        } else {
+          // No data for this CPT code in this node
+          row.push("");
+          row.push("");
+          row.push("");
+        }
+      }
+
+      // Add metric data - all monthly values as semicolon-separated, then total
+      for (const metric of sortedMetrics) {
+        const metricData = node.data?.[metric];
+        const values = metricData?.values || [];
+
+        // Create semicolon-separated string of all 12 monthly values
+        const monthlyValuesStr = Array.from(
+          { length: 12 },
+          (_, i) => values[i]?.toString() || "0"
+        ).join(";");
+        row.push(escapeCsvValue(monthlyValuesStr));
+
+        // Add total
+        row.push(escapeCsvValue(metricData?.total?.toString() || "0"));
+      }
+
+      csvContent += row.join(",") + "\n";
+    }
+
+    return csvContent;
+  } catch (err) {
+    throw new Error(`Failed to export customer data as CSV: ${err}`);
+  }
+}
+
+/**
+ * Helper function to escape CSV values
+ * @param value - The value to escape
+ * @returns Escaped CSV value
+ */
+function escapeCsvValue(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }

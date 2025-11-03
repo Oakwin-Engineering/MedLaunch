@@ -976,6 +976,29 @@ export async function clearAllScriptsFirestoreData(
   }
 }
 
+// Data source configuration mapping
+type DataSource = "athelas" | "allscripts" | "ecw";
+
+interface DataSourceConfig {
+  collectionName: string;
+  description: string;
+}
+
+const DATA_SOURCE_CONFIG: Record<DataSource, DataSourceConfig> = {
+  allscripts: {
+    collectionName: "allscripts_nodes",
+    description: "AllScripts data"
+  },
+  ecw: {
+    collectionName: "nodes", // VitalCare uses "nodes" for ECW data
+    description: "ECW data"
+  },
+  athelas: {
+    collectionName: "nodes", // Athelas uses "nodes"
+    description: "Athelas data"
+  }
+};
+
 /**
  * Exports all customer data as multiple CSV files
  * Wrapper function that gets data from Firebase and calls CSV export service
@@ -985,7 +1008,7 @@ export async function clearAllScriptsFirestoreData(
  */
 export async function exportCustomerDataAsCSV(
   customerId: string,
-  dataSource: "athelas" | "allscripts" | "ecw"
+  dataSource: DataSource
 ): Promise<{
   cptCodes: string;
   financial: string;
@@ -994,22 +1017,17 @@ export async function exportCustomerDataAsCSV(
 }> {
   try {
     const db = getCustomerDb(customerId);
+    const config = DATA_SOURCE_CONFIG[dataSource];
 
-    // Determine which collection to query based on data source
-    let collectionName: string;
-    if (dataSource === "allscripts") {
-      collectionName = "allscripts_nodes";
-    } else if (dataSource === "ecw") {
-      collectionName = "nodes"; // VitalCare uses "nodes" for ECW data
-    } else {
-      collectionName = "nodes"; // Athelas uses "nodes"
+    if (!config) {
+      throw new Error(`Unknown data source: ${dataSource}`);
     }
 
     // Get all nodes from the customer's database
-    const nodesSnapshot = await db.collection(collectionName).get();
+    const nodesSnapshot = await db.collection(config.collectionName).get();
 
     if (nodesSnapshot.empty) {
-      throw new Error(`No ${dataSource} data found for this customer`);
+      throw new Error(`No ${config.description} found for this customer`);
     }
 
     const nodes: any[] = [];

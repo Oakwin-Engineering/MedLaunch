@@ -280,13 +280,11 @@ async function saveCSVFilesLocally(
 
     // Delete existing directory and recreate it
     if (fs.existsSync(outputDir)) {
-      console.log(`🗑️  Deleting existing CSV directory: ${outputDir}`);
       await fs.promises.rm(outputDir, { recursive: true, force: true });
     }
 
     // Create fresh output directory
     await fs.promises.mkdir(outputDir, { recursive: true });
-    console.log(`📁 Created fresh CSV directory: ${outputDir}`);
 
     // Save each CSV file
     const files = [
@@ -299,12 +297,8 @@ async function saveCSVFilesLocally(
     for (const file of files) {
       const filePath = path.join(outputDir, file.name);
       await fs.promises.writeFile(filePath, file.content, "utf8");
-      console.log(`✅ Saved CSV file: ${filePath}`);
     }
-
-    console.log(`📁 All CSV files saved to: ${outputDir}`);
   } catch (error) {
-    console.error("Failed to save CSV files locally:", error);
     // Don't throw error here - API response should still work even if local save fails
   }
 }
@@ -334,7 +328,7 @@ export async function exportCustomerDataAsCSV(
     };
 
     // Save CSV files locally
-    await saveCSVFilesLocally(customerId, csvData);
+    // await saveCSVFilesLocally(customerId, csvData);
 
     return csvData;
   } catch (err) {

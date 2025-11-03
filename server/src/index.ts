@@ -149,6 +149,21 @@ app.get("/download-csv/:customerId", async (req: Request, res: Response) => {
 
     console.log(`Generating CSVs for customer: ${customerId}`);
 
+    // Customer data source configuration
+    const CUSTOMER_DATA_SOURCES: Record<
+      string,
+      ("athelas" | "allscripts" | "ecw")[]
+    > = {
+      vitalcare: ["ecw"],
+      uhealth: ["athelas", "allscripts"],
+      demo: ["ecw"],
+      // Default for all other customers
+      default: ["athelas"],
+    };
+
+    const dataSources =
+      CUSTOMER_DATA_SOURCES[customerId] || CUSTOMER_DATA_SOURCES.default;
+
     const result: any = {
       success: true,
       athelas: null,
@@ -156,68 +171,22 @@ app.get("/download-csv/:customerId", async (req: Request, res: Response) => {
       ecw: null,
     };
 
-    // VitalCare uses ECW data
-    if (customerId === "vitalcare") {
+    // Generate CSV files for each data source
+    for (const dataSource of dataSources) {
       try {
-        const ecwCsvData = await exportCustomerDataAsCSV(customerId, "ecw");
-        result.ecw = {
-          cptCodes: ecwCsvData.cptCodes,
-          financial: ecwCsvData.financial,
-          payroll: ecwCsvData.payroll,
-          rvu: ecwCsvData.rvu,
+        const csvData = await exportCustomerDataAsCSV(customerId, dataSource);
+        result[dataSource] = {
+          cptCodes: csvData.cptCodes,
+          financial: csvData.financial,
+          payroll: csvData.payroll,
+          rvu: csvData.rvu,
         };
-        console.log(`✅ ECW CSVs generated for ${customerId}`);
       } catch (error) {
-        console.log(`ℹ️  No ECW data for ${customerId}`);
-      }
-    } 
-    // UHealth uses both Athelas and AllScripts
-    else if (customerId === "uhealth") {
-      // Generate Athelas CSV files
-      try {
-        const athelasCsvData = await exportCustomerDataAsCSV(customerId, "athelas");
-        result.athelas = {
-          cptCodes: athelasCsvData.cptCodes,
-          financial: athelasCsvData.financial,
-          payroll: athelasCsvData.payroll,
-          rvu: athelasCsvData.rvu,
-        };
-        console.log(`✅ Athelas CSVs generated for ${customerId}`);
-      } catch (error) {
-        console.log(`ℹ️  No Athelas data for ${customerId}`);
-      }
-
-      // Generate AllScripts CSV files
-      try {
-        const allscriptsCsvData = await exportCustomerDataAsCSV(customerId, "allscripts");
-        result.allscripts = {
-          cptCodes: allscriptsCsvData.cptCodes,
-          financial: allscriptsCsvData.financial,
-          payroll: allscriptsCsvData.payroll,
-          rvu: allscriptsCsvData.rvu,
-        };
-        console.log(`✅ AllScripts CSVs generated for ${customerId}`);
-      } catch (error) {
-        console.log(`ℹ️  No AllScripts data for ${customerId}`);
-      }
-    }
-    // Other customers use Athelas
-    else {
-      try {
-        const athelasCsvData = await exportCustomerDataAsCSV(customerId, "athelas");
-        result.athelas = {
-          cptCodes: athelasCsvData.cptCodes,
-          financial: athelasCsvData.financial,
-          payroll: athelasCsvData.payroll,
-          rvu: athelasCsvData.rvu,
-        };
-        console.log(`✅ Athelas CSVs generated for ${customerId}`);
-      } catch (error) {
-        console.log(`ℹ️  No Athelas data for ${customerId}`);
+        // Silently handle missing data sources
       }
     }
 
-    console.log(`CSVs generated successfully for customer: ${customerId}`);
+    console.log(`✅ CSV export completed for ${customerId}`);
 
     // Return JSON with all CSV files
     res.json(result);
@@ -241,6 +210,9 @@ async function transformData(clientName: string): Promise<object> {
     case "uhealth":
       return await uHealthTransform();
     case "vitalcare":
+      return await vitalCareTransform();
+    case "demo":
+      // Demo account can use vital care logic
       return await vitalCareTransform();
     default:
       throw new Error("No customer name sent in");

@@ -35,6 +35,7 @@ Returns JSON with CSV strings for available data sources:
 **Data Sources by Customer:** 
 - **VitalCare**: `ecw` only (ECW data)
 - **UHealth**: `athelas` + `allscripts` (dual data sources)
+- **Demo**: `ecw` only (ECW data)
 - **Other customers**: `athelas` only
 
 ## CSV File Structures
@@ -157,6 +158,12 @@ curl http://localhost:3000/download-csv/vitalcare
 - `vitalcare_ecw_payroll.csv`
 - `vitalcare_ecw_rvu.csv`
 
+**Example for customer "demo" (ECW only):**
+- `demo_ecw_cpt_codes.csv`
+- `demo_ecw_financial.csv`
+- `demo_ecw_payroll.csv`
+- `demo_ecw_rvu.csv`
+
 **Example for customer "uhealth" (Athelas + AllScripts):**
 - `uhealth_athelas_cpt_codes.csv`
 - `uhealth_athelas_financial.csv`
@@ -183,7 +190,10 @@ Files are saved automatically when the API endpoint is called, regardless of whe
 
 ### Firebase Service (Wrapper)
 - **Location**: `/Users/vehbikaraagac/Desktop/MedLaunch/server/src/services/firebase.ts`
-- **Function**: `exportCustomerDataAsCSV()` - Lines 1217-1245 (wrapper that gets Firebase data and calls CSV service)
+- **Configuration**: `DATA_SOURCE_CONFIG` mapping (Lines 987-1000)
+- **Function**: `exportCustomerDataAsCSV()` - Lines 1009-1042 (wrapper that gets Firebase data and calls CSV service)
 
 ### API Endpoint
-- **Location**: `/Users/vehbikaraagac/Desktop/MedLaunch/server/src/index.ts` - Lines 144-173
+- **Location**: `/Users/vehbikaraagac/Desktop/MedLaunch/server/src/index.ts`
+- **Configuration**: `CUSTOMER_DATA_SOURCES` mapping (Lines 153-158)
+- **Endpoint**: Lines 145-199 (uses clean mapping instead of if-else chains)

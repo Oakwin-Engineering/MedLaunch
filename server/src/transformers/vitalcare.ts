@@ -15,7 +15,6 @@ import {
   percentageValue,
   sumOrAverage,
   formatPercentage,
-  sortNodes,
 } from "../types/common";
 import { matchNames } from "../services/nameMatching";
 import {
@@ -598,6 +597,7 @@ function createAllProvidersNode(
     label: "All Providers",
     iconType: "clinic",
     data: builder.buildNodeData(),
+    type: "aggregation",
   };
 }
 

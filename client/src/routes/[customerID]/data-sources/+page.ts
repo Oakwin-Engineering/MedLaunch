@@ -5,6 +5,21 @@ type Slug = {
   customerID: string;
 };
 
+type CsvFiles = {
+  cptCodes: string;
+  financial: string;
+  payroll: string;
+  rvu: string;
+};
+
+type CsvDataResponse = {
+  success: boolean;
+  athelas: CsvFiles | null;
+  allscripts: CsvFiles | null;
+  ecw: CsvFiles | null;
+  error?: string;
+};
+
 export const load: PageLoad = async ({ params }: { params: Slug }) => {
   const { customerID } = params;
 
@@ -18,7 +33,7 @@ export const load: PageLoad = async ({ params }: { params: Slug }) => {
       throw new Error(`Failed to fetch CSV data: ${response.statusText}`);
     }
 
-    const csvData = await response.text();
+    const csvData: CsvDataResponse = await response.json();
 
     return {
       csvData,
@@ -29,7 +44,7 @@ export const load: PageLoad = async ({ params }: { params: Slug }) => {
     console.error("Error loading CSV data:", error);
 
     return {
-      csvData: "",
+      csvData: null,
       customerID,
       error: error instanceof Error ? error.message : "Unknown error occurred",
     };

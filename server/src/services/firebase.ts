@@ -1,6 +1,7 @@
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getStorage } from "firebase-admin/storage";
 import { getFirestore } from "firebase-admin/firestore";
+import { exportCustomerDataAsCSV as exportCustomerDataToCSV } from "./csvExport";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
@@ -833,7 +834,9 @@ export async function storeAllScriptsProviderRankings(
         updatedAt: new Date().toISOString(),
       });
   } catch (err) {
-    throw new Error(`Failed to store AllScripts provider rankings for ${year}: ${err}`);
+    throw new Error(
+      `Failed to store AllScripts provider rankings for ${year}: ${err}`
+    );
   }
 }
 
@@ -860,7 +863,9 @@ export async function storeAllScriptsOperationalMetrics(
         updatedAt: new Date().toISOString(),
       });
   } catch (err) {
-    throw new Error(`Failed to store AllScripts operational metrics for ${year}: ${err}`);
+    throw new Error(
+      `Failed to store AllScripts operational metrics for ${year}: ${err}`
+    );
   }
 }
 
@@ -874,7 +879,9 @@ export async function storeAllScriptsDashboardData(
   customerId: string,
   dashboardData: any
 ): Promise<void> {
-  console.log(`\n🔄 Starting AllScripts Firestore storage for ${customerId}...`);
+  console.log(
+    `\n🔄 Starting AllScripts Firestore storage for ${customerId}...`
+  );
 
   // Clear existing AllScripts Firestore data before storing new data
   await clearAllScriptsFirestoreData(customerId);
@@ -893,12 +900,20 @@ export async function storeAllScriptsDashboardData(
 
     // Store provider rankings for this year
     if (providerRankings && providerRankings[year]) {
-      await storeAllScriptsProviderRankings(customerId, year, providerRankings[year]);
+      await storeAllScriptsProviderRankings(
+        customerId,
+        year,
+        providerRankings[year]
+      );
     }
 
     // Store operational metrics for this year
     if (operational && operational[year]) {
-      await storeAllScriptsOperationalMetrics(customerId, year, operational[year]);
+      await storeAllScriptsOperationalMetrics(
+        customerId,
+        year,
+        operational[year]
+      );
     }
   }
 
@@ -954,154 +969,57 @@ export async function clearAllScriptsFirestoreData(
 
     console.log(`✅ Cleared all AllScripts Firestore data for ${customerId}`);
   } catch (err) {
-    console.error(`Failed to clear AllScripts Firestore data for ${customerId}: ${err}`);
+    console.error(
+      `Failed to clear AllScripts Firestore data for ${customerId}: ${err}`
+    );
     throw new Error(`Failed to clear AllScripts Firestore data: ${err}`);
   }
 }
 
 /**
- * Exports all customer data as CSV string
+ * Exports all customer data as multiple CSV files
+ * Wrapper function that gets data from Firebase and calls CSV export service
  * @param customerId - The customer ID
- * @returns CSV string of all provider data
+ * @param dataSource - Data source ("athelas", "allscripts", or "ecw")
+ * @returns Object with CSV strings for different data types
  */
 export async function exportCustomerDataAsCSV(
-  customerId: string
-): Promise<string> {
+  customerId: string,
+  dataSource: "athelas" | "allscripts" | "ecw"
+): Promise<{
+  cptCodes: string;
+  financial: string;
+  payroll: string;
+  rvu: string;
+}> {
   try {
     const db = getCustomerDb(customerId);
 
+    // Determine which collection to query based on data source
+    let collectionName: string;
+    if (dataSource === "allscripts") {
+      collectionName = "allscripts_nodes";
+    } else if (dataSource === "ecw") {
+      collectionName = "nodes"; // VitalCare uses "nodes" for ECW data
+    } else {
+      collectionName = "nodes"; // Athelas uses "nodes"
+    }
+
     // Get all nodes from the customer's database
-    const nodesSnapshot = await db.collection("nodes").get();
+    const nodesSnapshot = await db.collection(collectionName).get();
 
     if (nodesSnapshot.empty) {
-      throw new Error("No data found for this customer");
+      throw new Error(`No ${dataSource} data found for this customer`);
     }
 
-    // Extract all unique metric keys and CPT codes from the data
-    const allMetrics = new Set<string>();
-    const allCptCodes = new Set<string>();
     const nodes: any[] = [];
-
     nodesSnapshot.forEach((doc) => {
-      const nodeData = doc.data();
-      nodes.push(nodeData);
-
-      // Extract metric keys from the data object
-      if (nodeData.data) {
-        Object.keys(nodeData.data).forEach((key) => {
-          if (key !== "cptCodes") {
-            allMetrics.add(key);
-          }
-        });
-
-        // Extract unique CPT codes
-        const cptCodes = nodeData.data.cptCodes || [];
-        cptCodes.forEach((cpt: any) => {
-          if (cpt.code) {
-            allCptCodes.add(cpt.code);
-          }
-        });
-      }
+      nodes.push(doc.data());
     });
 
-    // Sort metrics and CPT codes alphabetically for consistent column order
-    const sortedMetrics = Array.from(allMetrics).sort();
-    const sortedCptCodes = Array.from(allCptCodes).sort();
-
-    // Create CSV header
-    const headers = ["ID", "Label", "Type", "Parent ID", "Year"];
-
-    // Add headers for each CPT code: Code with coding % and monthly values
-    for (const cptCode of sortedCptCodes) {
-      headers.push(`CPT ${cptCode}`);
-      headers.push(`CPT ${cptCode} Values (Jan-Dec)`);
-      headers.push(`CPT ${cptCode} Total`);
-    }
-
-    // Add headers for each metric: Values (Jan-Dec) and Total
-    for (const metric of sortedMetrics) {
-      headers.push(`${metric} Values (Jan-Dec)`);
-      headers.push(`${metric} Total`);
-    }
-
-    let csvContent = headers.join(",") + "\n";
-
-    // Process each node and create CSV row
-    for (const node of nodes) {
-      const row = [
-        escapeCsvValue(node.id || ""),
-        escapeCsvValue(node.label || ""),
-        escapeCsvValue(node.type || ""),
-        escapeCsvValue(node.parentId || ""),
-        escapeCsvValue(node.year || ""),
-      ];
-
-      // Add CPT codes data
-      const cptCodesArray = node.data?.cptCodes || [];
-      const cptCodesMap = new Map();
-      cptCodesArray.forEach((cpt: any) => {
-        if (cpt.code) {
-          cptCodesMap.set(cpt.code, cpt);
-        }
-      });
-
-      for (const cptCode of sortedCptCodes) {
-        const cptData = cptCodesMap.get(cptCode);
-        if (cptData) {
-          // Add coding percentage
-          row.push(escapeCsvValue(cptData.coding || ""));
-
-          // Add monthly values
-          const values = cptData.values || [];
-          const monthlyValuesStr = Array.from(
-            { length: 12 },
-            (_, i) => values[i]?.toString() || "0"
-          ).join(";");
-          row.push(escapeCsvValue(monthlyValuesStr));
-
-          // Add total
-          row.push(escapeCsvValue(cptData.total?.toString() || "0"));
-        } else {
-          // No data for this CPT code in this node
-          row.push("");
-          row.push("");
-          row.push("");
-        }
-      }
-
-      // Add metric data - all monthly values as semicolon-separated, then total
-      for (const metric of sortedMetrics) {
-        const metricData = node.data?.[metric];
-        const values = metricData?.values || [];
-
-        // Create semicolon-separated string of all 12 monthly values
-        const monthlyValuesStr = Array.from(
-          { length: 12 },
-          (_, i) => values[i]?.toString() || "0"
-        ).join(";");
-        row.push(escapeCsvValue(monthlyValuesStr));
-
-        // Add total
-        row.push(escapeCsvValue(metricData?.total?.toString() || "0"));
-      }
-
-      csvContent += row.join(",") + "\n";
-    }
-
-    return csvContent;
+    // Call the CSV export service with the nodes data
+    return await exportCustomerDataToCSV(`${customerId}_${dataSource}`, nodes);
   } catch (err) {
     throw new Error(`Failed to export customer data as CSV: ${err}`);
   }
-}
-
-/**
- * Helper function to escape CSV values
- * @param value - The value to escape
- * @returns Escaped CSV value
- */
-function escapeCsvValue(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
 }

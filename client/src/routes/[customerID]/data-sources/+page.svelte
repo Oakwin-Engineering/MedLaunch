@@ -8,102 +8,311 @@
   
   store.currentDashboard = "DataSources";
 
-  let isLoading = false;
-  let csvContent = data.csvData || '';
   let error = data.error;
+  let csvData = data.csvData;
 
-  // Limit CSV display to first 20 lines to prevent page overflow
-  const displayCsvContent = csvContent ? csvContent.split('\n').slice(0, 20).join('\n') : '';
-  const totalLines = csvContent ? csvContent.split('\n').length : 0;
-
-  // Download CSV functionality
-  const downloadCsv = async () => {
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+  // Helper function to download a CSV file
+  const downloadCsvFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', `${data.customerID}-data.csv`);
+    a.setAttribute('download', filename);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   };
 
+  // Download all CSV files for a data source
+  const downloadAllCsvs = (source: 'athelas' | 'allscripts' | 'ecw') => {
+    let files;
+    if (source === 'athelas') files = csvData?.athelas;
+    else if (source === 'allscripts') files = csvData?.allscripts;
+    else if (source === 'ecw') files = csvData?.ecw;
+    
+    if (!files) return;
 
+    const prefix = `${data.customerID}_${source}`;
+    
+    downloadCsvFile(files.cptCodes, `${prefix}_cpt_codes.csv`);
+    downloadCsvFile(files.financial, `${prefix}_financial.csv`);
+    downloadCsvFile(files.payroll, `${prefix}_payroll.csv`);
+    downloadCsvFile(files.rvu, `${prefix}_rvu.csv`);
+  };
 
+  // Download individual CSV file
+  const downloadIndividualCsv = (source: 'athelas' | 'allscripts' | 'ecw', fileType: 'cptCodes' | 'financial' | 'payroll' | 'rvu') => {
+    let files;
+    if (source === 'athelas') files = csvData?.athelas;
+    else if (source === 'allscripts') files = csvData?.allscripts;
+    else if (source === 'ecw') files = csvData?.ecw;
+    
+    if (!files) return;
 
+    const prefix = `${data.customerID}_${source}`;
+    const fileNames = {
+      cptCodes: 'cpt_codes',
+      financial: 'financial',
+      payroll: 'payroll',
+      rvu: 'rvu'
+    };
+    
+    downloadCsvFile(files[fileType], `${prefix}_${fileNames[fileType]}.csv`);
+  };
 </script>
 
 <div class="mt-32 pl-32 pr-32">
   <div class="mb-6">
     <h1 class="text-3xl font-bold text-gray-900 mb-2">Data Sources</h1>
-    <p class="text-gray-600">View and download raw data sources for {store.customerID}</p>
+    <p class="text-gray-600">View and download CSV exports for {store.customerID}</p>
   </div>
 
-  <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-    <div class="p-4 border-b border-gray-200">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <FileExportSolid class="w-5 h-5 text-gray-500" />
-          <h2 class="text-lg font-semibold text-gray-900">Provider Data Export</h2>
-        </div>
-        <div class="flex gap-2">
-         
+  {#if error}
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <h3 class="text-sm font-semibold text-red-900 mb-2">❌ Error Loading Data</h3>
+      <p class="text-sm text-red-800">{error}</p>
+    </div>
+  {/if}
+
+  <!-- Athelas Data Source -->
+  {#if csvData?.athelas}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div class="p-4 border-b border-gray-200 bg-blue-50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <FileExportSolid class="w-5 h-5 text-blue-600" />
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">Athelas Data</h2>
+              <p class="text-sm text-gray-600">Primary data source</p>
+            </div>
+          </div>
           <Button 
-            onclick={downloadCsv}
-            disabled={isLoading || !csvContent}
+            onclick={() => downloadAllCsvs('athelas')}
             size="sm"
-            color="primary"
+            color="blue"
           >
             <DownloadSolid class="w-4 h-4 mr-2" />
-            Download CSV
+            Download All (4 files)
           </Button>
         </div>
       </div>
-    </div>
-    
-    <div class="p-4">
-      {#if error}
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 class="text-sm font-semibold text-red-900 mb-2">❌ Error Loading Data</h3>
-          <p class="text-sm text-red-800">{error}</p>
-        </div>
-      {:else if isLoading}
-        <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-          <div class="text-center">
-            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <p class="text-sm text-gray-600 mt-2">Loading data...</p>
-          </div>
-        </div>
-      {:else if csvContent}
-        <div class="bg-gray-50 rounded-lg p-4 overflow-x-auto">
-          <pre class="text-sm text-gray-700 font-mono whitespace-pre">{displayCsvContent}</pre>
-          {#if totalLines > 20}
-            <div class="text-center mt-3 pt-3 border-t border-gray-200">
-              <p class="text-sm text-gray-600">
-                Showing first 20 of {totalLines} lines. Download CSV to view complete data.
-              </p>
+      
+      <div class="p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onclick={() => downloadIndividualCsv('athelas', 'cptCodes')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">CPT Codes</p>
+              <p class="text-sm text-gray-500">Provider CPT code data by month</p>
             </div>
-          {/if}
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('athelas', 'financial')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">Financial Metrics</p>
+              <p class="text-sm text-gray-500">Charges, payments, adjustments</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('athelas', 'payroll')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">Payroll</p>
+              <p class="text-sm text-gray-500">Payroll and operating profit</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('athelas', 'rvu')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">RVU Data</p>
+              <p class="text-sm text-gray-500">Work RVUs and visits</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
         </div>
-      {:else}
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 class="text-sm font-semibold text-yellow-900 mb-2">⚠️ No Data Available</h3>
-          <p class="text-sm text-yellow-800">No data found for this customer. Click refresh to try again.</p>
-        </div>
-      {/if}
+      </div>
     </div>
-  </div>
+  {/if}
+
+  <!-- ECW Data Source (only for vitalcare) -->
+  {#if csvData?.ecw}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div class="p-4 border-b border-gray-200 bg-purple-50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <FileExportSolid class="w-5 h-5 text-purple-600" />
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">ECW Data</h2>
+              <p class="text-sm text-gray-600">Primary data source</p>
+            </div>
+          </div>
+          <Button 
+            onclick={() => downloadAllCsvs('ecw')}
+            size="sm"
+            color="purple"
+          >
+            <DownloadSolid class="w-4 h-4 mr-2" />
+            Download All (4 files)
+          </Button>
+        </div>
+      </div>
+      
+      <div class="p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onclick={() => downloadIndividualCsv('ecw', 'cptCodes')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">CPT Codes</p>
+              <p class="text-sm text-gray-500">Provider CPT code data by month</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('ecw', 'financial')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">Financial Metrics</p>
+              <p class="text-sm text-gray-500">Charges, payments, adjustments</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('ecw', 'payroll')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">Payroll</p>
+              <p class="text-sm text-gray-500">Payroll and operating profit</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('ecw', 'rvu')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">RVU Data</p>
+              <p class="text-sm text-gray-500">Work RVUs and visits</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- AllScripts Data Source (only for uhealth) -->
+  {#if csvData?.allscripts}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+      <div class="p-4 border-b border-gray-200 bg-green-50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <FileExportSolid class="w-5 h-5 text-green-600" />
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">AllScripts Data</h2>
+              <p class="text-sm text-gray-600">Secondary data source</p>
+            </div>
+          </div>
+          <Button 
+            onclick={() => downloadAllCsvs('allscripts')}
+            size="sm"
+            color="green"
+          >
+            <DownloadSolid class="w-4 h-4 mr-2" />
+            Download All (4 files)
+          </Button>
+        </div>
+      </div>
+      
+      <div class="p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onclick={() => downloadIndividualCsv('allscripts', 'cptCodes')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">CPT Codes</p>
+              <p class="text-sm text-gray-500">Provider CPT code data by month</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('allscripts', 'financial')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">Financial Metrics</p>
+              <p class="text-sm text-gray-500">Charges, payments, adjustments</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('allscripts', 'payroll')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">Payroll</p>
+              <p class="text-sm text-gray-500">Payroll and operating profit</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onclick={() => downloadIndividualCsv('allscripts', 'rvu')}
+            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+          >
+            <div>
+              <p class="font-medium text-gray-900">RVU Data</p>
+              <p class="text-sm text-gray-500">Work RVUs and visits</p>
+            </div>
+            <DownloadSolid class="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if !csvData?.athelas && !csvData?.allscripts && !csvData?.ecw && !error}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-yellow-900 mb-2">⚠️ No Data Available</h3>
+      <p class="text-sm text-yellow-800">No CSV data found for this customer.</p>
+    </div>
+  {/if}
 
   <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
     <h3 class="text-sm font-semibold text-blue-900 mb-2">📊 Data Information</h3>
     <ul class="text-sm text-blue-800 space-y-1">
       <li>• Last updated: {new Date().toLocaleDateString()}</li>
-      <li>• Total records: {csvContent ? csvContent.split('\n').length - 1 : 0} nodes</li>
-      <li>• Data source: {data.customerID} database</li>
+      <li>• Customer: {data.customerID}</li>
       <li>• Format: CSV (Comma Separated Values)</li>
+      <li>• Data sources: {[
+        csvData?.athelas ? 'Athelas' : null,
+        csvData?.allscripts ? 'AllScripts' : null,
+        csvData?.ecw ? 'ECW' : null
+      ].filter(Boolean).join(', ')}</li>
     </ul>
   </div>
 </div>

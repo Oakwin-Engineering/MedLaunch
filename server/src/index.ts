@@ -138,30 +138,95 @@ app.get("/download-data/:customerId", async (req: Request, res: Response) => {
 });
 
 /**
- * Endpoint to download customer data as CSV
+ * Endpoint to download customer data as multiple CSV files
+ * Returns JSON with separate CSV strings for each data type
+ * Supports Athelas, AllScripts, and ECW data sources
  */
 app.get("/download-csv/:customerId", async (req: Request, res: Response) => {
   try {
     const customerId = req.params.customerId;
     getBucketName(customerId); // Validate customer ID
 
-    console.log(`Generating CSV for customer: ${customerId}`);
+    console.log(`Generating CSVs for customer: ${customerId}`);
 
-    // Generate CSV from customer data
-    const csvData = await exportCustomerDataAsCSV(customerId);
+    const result: any = {
+      success: true,
+      athelas: null,
+      allscripts: null,
+      ecw: null,
+    };
 
-    console.log(`CSV generated successfully for customer: ${customerId}`);
+    // VitalCare uses ECW data
+    if (customerId === "vitalcare") {
+      try {
+        const ecwCsvData = await exportCustomerDataAsCSV(customerId, "ecw");
+        result.ecw = {
+          cptCodes: ecwCsvData.cptCodes,
+          financial: ecwCsvData.financial,
+          payroll: ecwCsvData.payroll,
+          rvu: ecwCsvData.rvu,
+        };
+        console.log(`✅ ECW CSVs generated for ${customerId}`);
+      } catch (error) {
+        console.log(`ℹ️  No ECW data for ${customerId}`);
+      }
+    } 
+    // UHealth uses both Athelas and AllScripts
+    else if (customerId === "uhealth") {
+      // Generate Athelas CSV files
+      try {
+        const athelasCsvData = await exportCustomerDataAsCSV(customerId, "athelas");
+        result.athelas = {
+          cptCodes: athelasCsvData.cptCodes,
+          financial: athelasCsvData.financial,
+          payroll: athelasCsvData.payroll,
+          rvu: athelasCsvData.rvu,
+        };
+        console.log(`✅ Athelas CSVs generated for ${customerId}`);
+      } catch (error) {
+        console.log(`ℹ️  No Athelas data for ${customerId}`);
+      }
 
-    // Set headers for CSV download
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${customerId}-data.csv"`
-    );
-    res.send(csvData);
+      // Generate AllScripts CSV files
+      try {
+        const allscriptsCsvData = await exportCustomerDataAsCSV(customerId, "allscripts");
+        result.allscripts = {
+          cptCodes: allscriptsCsvData.cptCodes,
+          financial: allscriptsCsvData.financial,
+          payroll: allscriptsCsvData.payroll,
+          rvu: allscriptsCsvData.rvu,
+        };
+        console.log(`✅ AllScripts CSVs generated for ${customerId}`);
+      } catch (error) {
+        console.log(`ℹ️  No AllScripts data for ${customerId}`);
+      }
+    }
+    // Other customers use Athelas
+    else {
+      try {
+        const athelasCsvData = await exportCustomerDataAsCSV(customerId, "athelas");
+        result.athelas = {
+          cptCodes: athelasCsvData.cptCodes,
+          financial: athelasCsvData.financial,
+          payroll: athelasCsvData.payroll,
+          rvu: athelasCsvData.rvu,
+        };
+        console.log(`✅ Athelas CSVs generated for ${customerId}`);
+      } catch (error) {
+        console.log(`ℹ️  No Athelas data for ${customerId}`);
+      }
+    }
+
+    console.log(`CSVs generated successfully for customer: ${customerId}`);
+
+    // Return JSON with all CSV files
+    res.json(result);
   } catch (error) {
-    console.error("Error generating CSV:", error);
-    res.status(500).send(`Error generating CSV: ${error}`);
+    console.error("Error generating CSVs:", error);
+    res.status(500).json({
+      success: false,
+      error: `Error generating CSVs: ${error}`,
+    });
   }
 });
 
